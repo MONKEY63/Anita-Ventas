@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -6,7 +7,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Anita Ventas">
-    <title>Anita Maria - Ventas con iCloud</title>
+    <title>Anita Maria - Gestión de Ventas</title>
     <style>
         * { box-sizing: border-box; }
         body {
@@ -43,7 +44,9 @@
         .btn-success { background: #10b981; }
         .btn-danger { background: #ef4444; }
         .btn-secondary { background: #9ca3af; color: white; }
+        .btn-warning { background: #f59e0b; color: white; }
         .btn-full { width: 100%; margin: 10px 0; }
+        .btn-sm { padding: 8px 12px; font-size: 14px; }
         input, select {
             width: 100%;
             padding: 10px;
@@ -72,18 +75,18 @@
         .flex-between { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; }
         .text-red { color: #ef4444; }
         .text-green { color: #10b981; }
+        .text-center { text-align: center; }
         .mt-2 { margin-top: 8px; }
         .mt-4 { margin-top: 16px; }
         .text-lg { font-size: 28px; font-weight: bold; }
-        .sync-status {
+        .storage-status {
             font-size: 12px;
             padding: 6px 12px;
             border-radius: 20px;
             display: inline-block;
+            background: #d1fae5;
+            color: #065f46;
         }
-        .sync-ok { background: #d1fae5; color: #065f46; }
-        .sync-error { background: #fee2e2; color: #991b1b; }
-        .sync-syncing { background: #fef3c7; color: #92400e; }
         .modal {
             display: none;
             position: fixed;
@@ -104,6 +107,13 @@
             text-align: center;
         }
         .edit-input { width: 100%; padding: 6px; border: 1px solid #ccc; border-radius: 6px; }
+        .barra-acciones {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            flex-wrap: wrap;
+            margin-top: 10px;
+        }
         @media print {
             body > *:not(.print-container) { display: none !important; }
             .print-container { display: block !important; padding: 20px; }
@@ -113,10 +123,16 @@
 <body>
 
 <div class="container">
-    <!-- Estado de sincronización iCloud -->
-    <div class="card" style="background:#f3f4f6; text-align:center; padding:10px;">
-        <span id="syncStatus" class="sync-status sync-ok">☁️ iCloud Drive: Verificando...</span>
-        <button id="syncNowBtn" style="background:#4f46e5; padding:4px 12px; font-size:12px; margin-left:10px;">🔄 Sincronizar</button>
+    <!-- Estado de almacenamiento y acciones -->
+    <div class="card" style="background:#f3f4f6; text-align:center;">
+        <div class="barra-acciones">
+            <span class="storage-status">💾 Datos locales en este dispositivo</span>
+            <button id="exportarBtn" class="btn-success btn-sm">📤 Exportar datos</button>
+            <button id="importarBtn" class="btn-warning btn-sm">📥 Importar datos</button>
+        </div>
+        <p style="font-size: 11px; color: #6b7280; margin-top: 8px;">
+            💡 Exporta los datos desde un dispositivo, envíalos por AirDrop/WhatsApp al otro, e impórtalos para compartir la información.
+        </p>
     </div>
 
     <!-- Resumen -->
@@ -182,15 +198,15 @@
             <div style="display:flex; flex-wrap:wrap; gap:8px;">
                 <input type="month" id="printMonth" style="width:120px;">
                 <input type="date" id="printDate" style="width:120px;">
-                <button id="printMonthBtn" class="btn-secondary">📅 Imprimir Mes</button>
-                <button id="printDayBtn" class="btn-success">📆 Imprimir Día</button>
-                <button id="clearHistoryBtn" class="btn-danger">🗑️ Limpiar Todo</button>
+                <button id="printMonthBtn" class="btn-secondary btn-sm">📅 Imprimir Mes</button>
+                <button id="printDayBtn" class="btn-success btn-sm">📆 Imprimir Día</button>
+                <button id="clearHistoryBtn" class="btn-danger btn-sm">🗑️ Limpiar Todo</button>
             </div>
         </div>
         <div style="background:#f3f4f6; padding:15px; border-radius:12px; margin:15px 0; display:flex; gap:10px; flex-wrap:wrap;">
             <input type="text" id="searchClient" placeholder="🔍 Buscar cliente..." style="flex:1;">
             <input type="date" id="searchDate" style="width:130px;">
-            <button id="clearSearchBtn" class="btn-secondary">Limpiar</button>
+            <button id="clearSearchBtn" class="btn-secondary btn-sm">Limpiar</button>
         </div>
         <div id="historyContainer" style="overflow-x:auto;"></div>
     </div>
@@ -215,17 +231,13 @@
     </div>
 </div>
 
+<input type="file" id="fileImport" accept=".json" style="display: none;">
+
 <script>
-    // ==================== NASA-GRADE CODE - AUDITADO ====================
-    
     // ==================== DATOS GLOBALES ====================
     let productos = [];
     let ventas = [];
     let itemsVenta = [];
-    let timeoutSync = null;
-    let syncInProgress = false;
-    
-    const NOMBRE_ARCHIVO = 'anita_ventas_cloud.json';
     
     // ==================== UTILIDADES ====================
     const formatPeso = (n) => '$' + (n || 0).toLocaleString('es-CL');
@@ -243,21 +255,92 @@
         if (modal) modal.style.display = 'none';
     }
     
-    function actualizarStatusSync(estado, texto) {
-        const el = document.getElementById('syncStatus');
-        if (!el) return;
-        el.className = `sync-status sync-${estado}`;
-        el.innerText = texto;
-        // Solo resetear automáticamente si no es error
-        if (estado !== 'error') {
-            setTimeout(() => {
-                if (el.className === `sync-status sync-${estado}`) {
-                    el.className = 'sync-status sync-ok';
-                    el.innerText = '☁️ iCloud Drive: Conectado';
-                }
-            }, 3000);
+    // ==================== ALMACENAMIENTO LOCAL ====================
+    function guardarTodo() {
+        localStorage.setItem('anita_productos', JSON.stringify(productos));
+        localStorage.setItem('anita_ventas', JSON.stringify(ventas));
+    }
+    
+    function cargarDatos() {
+        const productosGuardados = localStorage.getItem('anita_productos');
+        const ventasGuardadas = localStorage.getItem('anita_ventas');
+        
+        if (productosGuardados && ventasGuardadas) {
+            productos = JSON.parse(productosGuardados);
+            ventas = JSON.parse(ventasGuardadas);
+        } else {
+            // Datos iniciales
+            productos = [
+                { id: '1', nombre: 'Queso', precio: 10500, stock: 50 },
+                { id: '2', nombre: 'Longanizas', precio: 8700, stock: 30 },
+                { id: '3', nombre: 'Arrollado', precio: 4700, stock: 10 },
+                { id: '4', nombre: 'Miel', precio: 9000, stock: 5 },
+                { id: '5', nombre: 'Prietas', precio: 8500, stock: 4 }
+            ];
+            ventas = [];
+            guardarTodo();
         }
     }
+    
+    // ==================== EXPORTAR / IMPORTAR ====================
+    function exportarDatos() {
+        const datos = {
+            version: '1.0',
+            fechaExportacion: new Date().toISOString(),
+            productos: productos,
+            ventas: ventas
+        };
+        
+        const jsonStr = JSON.stringify(datos, null, 2);
+        const blob = new Blob([jsonStr], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `anita_ventas_${new Date().toISOString().split('T')[0]}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        
+        mostrarMensaje('Exportación completa', 'Archivo de datos guardado.\nEnvíalo por AirDrop/WhatsApp al otro dispositivo.');
+    }
+    
+    function importarDesdeArchivo(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+        
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            try {
+                const datos = JSON.parse(e.target.result);
+                if (datos.productos && datos.ventas) {
+                    productos = datos.productos;
+                    ventas = datos.ventas;
+                    guardarTodo();
+                    renderProductos();
+                    renderItemsVenta();
+                    renderHistorial();
+                    renderResumen();
+                    mostrarMensaje('Importación exitosa', `Se importaron:\n📦 ${productos.length} productos\n📜 ${ventas.length} ventas`);
+                } else {
+                    mostrarMensaje('Error', 'El archivo no contiene datos válidos');
+                }
+            } catch(error) {
+                mostrarMensaje('Error', 'No se pudo leer el archivo. Formato inválido.');
+            }
+            // Limpiar input para permitir importar el mismo archivo nuevamente
+            document.getElementById('fileImport').value = '';
+        };
+        reader.readAsText(file);
+    }
+    
+    // Botones exportar/importar
+    document.getElementById('exportarBtn').onclick = exportarDatos;
+    document.getElementById('importarBtn').onclick = function() {
+        document.getElementById('fileImport').click();
+    };
+    document.getElementById('fileImport').onchange = importarDesdeArchivo;
     
     // ==================== FECHAS COMPATIBLES iOS 12 ====================
     function obtenerFechaActual() {
@@ -273,197 +356,6 @@
         const año = ahora.getFullYear();
         const mes = String(ahora.getMonth() + 1).padStart(2, '0');
         return `${año}-${mes}`;
-    }
-    
-    // ==================== iCLOUD DRIVE (CORREGIDO) ====================
-    function isICloudAvailable() {
-        // Verificar si estamos en un dispositivo Apple con iCloud Drive
-        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-        if (!isIOS) return false;
-        
-        // Verificar si la API de archivos está disponible
-        if (!window.webkitRequestFileSystem && !window.requestFileSystem) {
-            return false;
-        }
-        
-        return true;
-    }
-    
-    function obtenerArchivoCloud() {
-        return new Promise((resolve) => {
-            try {
-                const fs = window.webkitRequestFileSystem || window.requestFileSystem;
-                if (!fs) {
-                    resolve(null);
-                    return;
-                }
-                
-                fs(LocalFileSystem.PERSISTENT, 0, function(fileSystem) {
-                    fileSystem.root.getFile(NOMBRE_ARCHIVO, { create: true }, function(fileEntry) {
-                        resolve(fileEntry);
-                    }, function(error) {
-                        console.log('Error obteniendo archivo:', error);
-                        resolve(null);
-                    });
-                }, function(error) {
-                    console.log('Error accediendo a fileSystem:', error);
-                    resolve(null);
-                });
-            } catch(e) {
-                console.log('Excepción en obtenerArchivoCloud:', e);
-                resolve(null);
-            }
-        });
-    }
-    
-    async function leerDatosCloud() {
-        if (!isICloudAvailable()) {
-            return null;
-        }
-        
-        try {
-            const fileEntry = await obtenerArchivoCloud();
-            if (!fileEntry) return null;
-            
-            return new Promise((resolve) => {
-                fileEntry.file(function(file) {
-                    const reader = new FileReader();
-                    reader.onloadend = function(e) {
-                        if (e.target.result && e.target.result.length > 0) {
-                            try {
-                                const data = JSON.parse(e.target.result);
-                                resolve(data);
-                            } catch(e) {
-                                resolve(null);
-                            }
-                        } else {
-                            resolve(null);
-                        }
-                    };
-                    reader.onerror = function() {
-                        resolve(null);
-                    };
-                    reader.readAsText(file);
-                }, function() {
-                    resolve(null);
-                });
-            });
-        } catch(e) {
-            console.log('Error leyendo de iCloud:', e);
-            return null;
-        }
-    }
-    
-    async function guardarDatosCloud() {
-        if (!isICloudAvailable()) {
-            return false;
-        }
-        
-        try {
-            const fileEntry = await obtenerArchivoCloud();
-            if (!fileEntry) return false;
-            
-            const datos = {
-                productos: productos,
-                ventas: ventas,
-                version: '1.0',
-                ultimaActualizacion: Date.now()
-            };
-            const contenido = JSON.stringify(datos, null, 2);
-            
-            return new Promise((resolve) => {
-                fileEntry.createWriter(function(writer) {
-                    writer.onwriteend = function() {
-                        resolve(true);
-                    };
-                    writer.onerror = function(error) {
-                        console.log('Error escribiendo:', error);
-                        resolve(false);
-                    };
-                    const blob = new Blob([contenido], { type: 'application/json' });
-                    writer.write(blob);
-                }, function(error) {
-                    console.log('Error obteniendo writer:', error);
-                    resolve(false);
-                });
-            });
-        } catch(e) {
-            console.log('Error guardando en iCloud:', e);
-            return false;
-        }
-    }
-    
-    async function sincronizarDesdeCloud() {
-        if (syncInProgress) {
-            actualizarStatusSync('ok', '☁️ Sincronización en curso...');
-            return;
-        }
-        
-        syncInProgress = true;
-        actualizarStatusSync('syncing', '☁️ Sincronizando...');
-        
-        try {
-            const datosCloud = await leerDatosCloud();
-            
-            if (datosCloud && datosCloud.productos && datosCloud.ventas) {
-                let cambio = false;
-                
-                // Verificar si hay cambios en productos
-                if (JSON.stringify(productos) !== JSON.stringify(datosCloud.productos)) {
-                    productos = datosCloud.productos;
-                    cambio = true;
-                }
-                // Verificar si hay cambios en ventas
-                if (JSON.stringify(ventas) !== JSON.stringify(datosCloud.ventas)) {
-                    ventas = datosCloud.ventas;
-                    cambio = true;
-                }
-                
-                if (cambio) {
-                    // Actualizar toda la interfaz
-                    renderProductos();
-                    renderItemsVenta();
-                    renderHistorial();
-                    renderResumen();
-                    actualizarStatusSync('ok', '☁️ Datos sincronizados desde iCloud');
-                    mostrarMensaje('Sincronización', 'Datos actualizados desde iCloud');
-                } else {
-                    actualizarStatusSync('ok', '☁️ Datos actualizados');
-                }
-            } else if (productos.length > 0 && ventas.length >= 0) {
-                // Subir datos locales a la nube por primera vez
-                const guardado = await guardarDatosCloud();
-                if (guardado) {
-                    actualizarStatusSync('ok', '☁️ Datos subidos a iCloud');
-                } else {
-                    actualizarStatusSync('error', '⚠️ No se pudo guardar en iCloud');
-                }
-            } else {
-                actualizarStatusSync('ok', '☁️ iCloud Drive listo');
-            }
-        } catch(e) {
-            console.log('Error en sincronización:', e);
-            actualizarStatusSync('error', '⚠️ Error de sincronización');
-        } finally {
-            syncInProgress = false;
-        }
-    }
-    
-    async function guardarYSincronizar() {
-        if (timeoutSync) clearTimeout(timeoutSync);
-        
-        timeoutSync = setTimeout(async () => {
-            if (!isICloudAvailable()) {
-                return;
-            }
-            
-            const guardado = await guardarDatosCloud();
-            if (guardado) {
-                actualizarStatusSync('ok', '☁️ Guardado en iCloud');
-            } else {
-                actualizarStatusSync('error', '⚠️ Error al guardar');
-            }
-        }, 500);
     }
     
     // ==================== PRODUCTOS ====================
@@ -488,18 +380,9 @@
     }
     
     window.editarProducto = function(id) {
-        const nombreInput = document.getElementById(`nombre_${id}`);
-        const precioInput = document.getElementById(`precio_${id}`);
-        const stockInput = document.getElementById(`stock_${id}`);
-        
-        if (!nombreInput || !precioInput || !stockInput) {
-            mostrarMensaje('Error', 'No se encontraron los campos');
-            return;
-        }
-        
-        const nombre = nombreInput.value.trim();
-        const precio = parseFloat(precioInput.value);
-        const stock = parseInt(stockInput.value);
+        const nombre = document.getElementById(`nombre_${id}`).value.trim();
+        const precio = parseFloat(document.getElementById(`precio_${id}`).value);
+        const stock = parseInt(document.getElementById(`stock_${id}`).value);
         
         if (!nombre) { mostrarMensaje('Error', 'Nombre requerido'); return; }
         if (isNaN(precio) || precio <= 0) { mostrarMensaje('Error', 'Precio inválido'); return; }
@@ -514,7 +397,7 @@
             renderItemsVenta();
             renderHistorial();
             renderResumen();
-            guardarYSincronizar();
+            guardarTodo();
             mostrarMensaje('Éxito', `Producto "${nombre}" actualizado`);
         }
     };
@@ -534,7 +417,7 @@
             renderItemsVenta();
             renderHistorial();
             renderResumen();
-            guardarYSincronizar();
+            guardarTodo();
             mostrarMensaje('Eliminado', `"${producto.nombre}" eliminado`);
         }
     };
@@ -570,7 +453,7 @@
         productos.push({ id: nuevoId, nombre: nombre, precio: precio, stock: stock });
         renderProductos();
         renderItemsVenta();
-        guardarYSincronizar();
+        guardarTodo();
         cerrarModal('productModal');
         mostrarMensaje('Éxito', `Producto "${nombre}" agregado`);
     };
@@ -611,7 +494,7 @@
     
     function asignarEventosItems() {
         document.querySelectorAll('.item-select').forEach(sel => {
-            sel.onchange = function(e) {
+            sel.onchange = function() {
                 const idx = parseInt(this.getAttribute('data-idx'));
                 if (!isNaN(idx) && itemsVenta[idx]) {
                     itemsVenta[idx].productId = this.value;
@@ -621,7 +504,7 @@
         });
         
         document.querySelectorAll('.item-qty').forEach(inp => {
-            inp.onchange = function(e) {
+            inp.onchange = function() {
                 const idx = parseInt(this.getAttribute('data-idx'));
                 let qty = parseInt(this.value);
                 if (isNaN(qty) || qty < 1) qty = 1;
@@ -634,7 +517,7 @@
         });
         
         document.querySelectorAll('.remove-item').forEach(btn => {
-            btn.onclick = function(e) {
+            btn.onclick = function() {
                 const idx = parseInt(this.getAttribute('data-idx'));
                 if (!isNaN(idx)) {
                     itemsVenta.splice(idx, 1);
@@ -655,6 +538,7 @@
         return total;
     }
     
+    // ==================== BOTONES PRINCIPALES ====================
     document.getElementById('addItemBtn').onclick = function() {
         if (productos.length === 0) {
             mostrarMensaje('Error', 'No hay productos. Crea uno primero.');
@@ -664,7 +548,12 @@
         renderItemsVenta();
     };
     
-    // ==================== REGISTRAR VENTA ====================
+    document.getElementById('paymentType').onchange = function() {
+        if (this.value === 'credito') {
+            document.getElementById('amountPaid').value = 0;
+        }
+    };
+    
     document.getElementById('registerBtn').onclick = function() {
         const comprador = document.getElementById('buyerName').value.trim();
         if (!comprador) { mostrarMensaje('Error', 'Nombre del comprador requerido'); return; }
@@ -678,7 +567,7 @@
         
         for (let i = 0; i < itemsVenta.length; i++) {
             const item = itemsVenta[i];
-            if (!item.productId) { mostrarMensaje('Error', 'Seleccione un producto para todos los items'); return; }
+            if (!item.productId) { mostrarMensaje('Error', 'Seleccione un producto'); return; }
             const prod = productos.find(p => p.id === item.productId);
             if (!prod) { mostrarMensaje('Error', 'Producto no encontrado'); return; }
             const cant = item.quantity || 1;
@@ -703,7 +592,6 @@
             if (prod) prod.stock -= item.cantidad;
         }
         
-        // Guardar venta
         ventas.push({
             id: Date.now(),
             comprador: comprador,
@@ -725,7 +613,7 @@
         renderProductos();
         renderHistorial();
         renderResumen();
-        guardarYSincronizar();
+        guardarTodo();
         
         mostrarMensaje('Venta registrada', `${comprador} - ${formatPeso(total)}`);
     };
@@ -743,11 +631,11 @@
         if (filtroFecha) filtradas = filtradas.filter(v => v.fecha === filtroFecha);
         
         if (filtradas.length === 0) {
-            container.innerHTML = '<p style="text-align:center; color:gray; padding:20px;">No hay ventas</p>';
+            container.innerHTML = '<p class="text-center" style="text-align:center; color:gray; padding:20px;">No hay ventas</p>';
             return;
         }
         
-        let html = '<table style="width:100%;"><thead><tr style="background:#f3f4f6;"><th style="padding:12px;">Fecha</th><th style="padding:12px;">Cliente</th><th style="padding:12px;">Productos</th><th style="padding:12px;">Total</th><th style="padding:12px;">Deuda</th><th style="padding:12px;">Tipo</th></tr></thead><tbody>';
+        let html = '<table style="width:100%;"><thead><tr style="background:#f3f4f6;"><th style="padding:12px;">Fecha</th><th style="padding:12px;">Cliente</th><th style="padding:12px;">Productos</th><th style="padding:12px;">Total</th><th style="padding:12px;">Deuda</th><th style="padding:12px;">Tipo</th></table></thead><tbody>';
         
         for (const v of filtradas) {
             const prodList = v.items.map(i => `${i.nombre} x${i.cantidad}`).join(', ');
@@ -827,11 +715,21 @@
             return parseInt(a) === año && parseInt(m) === mes;
         });
         if (filtradas.length === 0) { mostrarMensaje('Sin datos', `No hay ventas en ${valor}`); return; }
+        
         const win = window.open('', '_blank');
         if (!win) { mostrarMensaje('Error', 'Permite ventanas emergentes en Safari'); return; }
+        
         win.document.write(`<html><head><title>Reporte ${valor}</title><style>body{font-family:Arial;padding:20px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #000;padding:8px}th{background:#f0f0f0}</style></head><body><h1 style="text-align:center">Reporte de Ventas</h1><h2 style="text-align:center">${valor}</h2><table><thead><tr><th>Fecha</th><th>Cliente</th><th>Productos</th><th>Total</th><th>Deuda</th><th>Tipo</th></tr></thead><tbody>`);
+        
         for (const v of filtradas) {
-            win.document.write(`<tr><td>${v.fecha}</td><td>${escapeHtml(v.comprador)}</td><td>${v.items.map(i => `${i.nombre} x${i.cantidad}`).join(', ')}</td><td>${formatPeso(v.total)}</td><td>${formatPeso(v.deuda)}</td><td>${v.tipo}</td></tr>`);
+            win.document.write(`<tr>
+                <td>${v.fecha}</td>
+                <td>${escapeHtml(v.comprador)}</td>
+                <td>${v.items.map(i => `${i.nombre} x${i.cantidad}`).join(', ')}</td>
+                <td>${formatPeso(v.total)}</td>
+                <td>${formatPeso(v.deuda)}</td>
+                <td>${v.tipo}</td>
+            </table>`);
         }
         win.document.write(`</tbody></table></body></html>`);
         win.document.close();
@@ -843,11 +741,20 @@
         if (!fecha) { mostrarMensaje('Error', 'Seleccione una fecha'); return; }
         const filtradas = ventas.filter(v => v.fecha === fecha);
         if (filtradas.length === 0) { mostrarMensaje('Sin datos', `No hay ventas el ${fecha}`); return; }
+        
         const win = window.open('', '_blank');
         if (!win) { mostrarMensaje('Error', 'Permite ventanas emergentes en Safari'); return; }
-        win.document.write(`<html><head><title>Reporte ${fecha}</title><style>body{font-family:Arial;padding:20px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #000;padding:8px}th{background:#f0f0f0}</style></head><body><h1 style="text-align:center">Reporte Diario</h1><h2 style="text-align:center">${new Date(fecha).toLocaleDateString()}</h2><table><thead><tr><th>Cliente</th><th>Productos</th><th>Total</th><th>Deuda</th><th>Tipo</th></tr></thead><tbody>`);
+        
+        win.document.write(`<html><head><title>Reporte ${fecha}</title><style>body{font-family:Arial;padding:20px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #000;padding:8px}th{background:#f0f0f0}</style></head><body><h1 style="text-align:center">Reporte Diario</h1><h2 style="text-align:center">${new Date(fecha).toLocaleDateString()}</h2></td><thead><tr><th>Cliente</th><th>Productos</th><th>Total</th><th>Deuda</th><th>Tipo</th></tr></thead><tbody>`);
+        
         for (const v of filtradas) {
-            win.document.write(`<td>${escapeHtml(v.comprador)}</td><td>${v.items.map(i => `${i.nombre} x${i.cantidad}`).join(', ')}</td><td>${formatPeso(v.total)}</td><td>${formatPeso(v.deuda)}</td><td>${v.tipo}</td></tr>`);
+            win.document.write(`<tr>
+                <td>${escapeHtml(v.comprador)}</td>
+                <td>${v.items.map(i => `${i.nombre} x${i.cantidad}`).join(', ')}</td>
+                <td>${formatPeso(v.total)}</td>
+                <td>${formatPeso(v.deuda)}</td>
+                <td>${v.tipo}</td>
+            </tr>`);
         }
         win.document.write(`</tbody></table></body></html>`);
         win.document.close();
@@ -855,50 +762,23 @@
     }
     
     function limpiarHistorial() {
-        if (confirm('⚠️ ¿Eliminar TODO el historial de ventas?')) {
+        if (confirm('⚠️ ¿Eliminar TODO el historial de ventas? Esta acción no se puede deshacer.')) {
             ventas = [];
             renderHistorial();
             renderResumen();
-            guardarYSincronizar();
+            guardarTodo();
             mostrarMensaje('Historial limpiado', 'Todos los registros fueron eliminados');
         }
     }
     
+    // Asignar eventos de impresión y limpieza
     document.getElementById('printMonthBtn').onclick = imprimirMes;
     document.getElementById('printDayBtn').onclick = imprimirDia;
     document.getElementById('clearHistoryBtn').onclick = limpiarHistorial;
-    document.getElementById('syncNowBtn').onclick = function() { sincronizarDesdeCloud(); };
-    
-    // ==================== DATOS INICIALES ====================
-    function cargarDatosIniciales() {
-        // Intentar cargar desde localStorage primero
-        const productosLocal = localStorage.getItem('anita_productos_backup');
-        const ventasLocal = localStorage.getItem('anita_ventas_backup');
-        
-        if (productosLocal && ventasLocal) {
-            productos = JSON.parse(productosLocal);
-            ventas = JSON.parse(ventasLocal);
-        } else {
-            productos = [
-                { id: '1', nombre: 'Queso', precio: 10500, stock: 50 },
-                { id: '2', nombre: 'Longanizas', precio: 8700, stock: 30 },
-                { id: '3', nombre: 'Arrollado', precio: 4700, stock: 10 },
-                { id: '4', nombre: 'Miel', precio: 9000, stock: 5 },
-                { id: '5', nombre: 'Prietas', precio: 8500, stock: 4 }
-            ];
-            ventas = [];
-        }
-    }
-    
-    function guardarBackupLocal() {
-        localStorage.setItem('anita_productos_backup', JSON.stringify(productos));
-        localStorage.setItem('anita_ventas_backup', JSON.stringify(ventas));
-    }
     
     // ==================== INICIALIZACIÓN ====================
-    async function iniciar() {
-        cargarDatosIniciales();
-        
+    function iniciar() {
+        cargarDatos();
         renderProductos();
         renderItemsVenta();
         renderHistorial();
@@ -913,26 +793,14 @@
         if (mesInput) mesInput.value = obtenerMesActual();
         if (diaInput) diaInput.value = obtenerFechaActual();
         
-        // Verificar iCloud
-        if (isICloudAvailable()) {
-            await sincronizarDesdeCloud();
-        } else {
-            actualizarStatusSync('error', '⚠️ iCloud no disponible. Datos guardados localmente.');
-        }
-        
-        // Backup automático cada vez que se cierra
-        window.addEventListener('beforeunload', function() {
-            guardarBackupLocal();
-        });
-        
-        console.log('App iniciada correctamente - Versión con iCloud');
+        console.log('App iniciada correctamente con Exportar/Importar');
     }
     
     iniciar();
 </script>
 
 <footer style="text-align:center; font-size:11px; color:gray; margin-top:20px;">
-    ✅ Sistema Anita Maria — Sincronizado con iCloud Drive | Datos respaldados | Creado por Monkey 63
+    ✅ Sistema Anita Maria — Datos locales | Exportar/Importar para compartir entre dispositivos | Creado por Monkey 63
 </footer>
 
 </body>
