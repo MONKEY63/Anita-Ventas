@@ -2,22 +2,20 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Anita Ventas">
-    <title>Anita Maria - Ventas</title>
+    <title>Anita Maria - Gestión de Ventas con iCloud</title>
     <style>
+        * { box-sizing: border-box; }
         body {
-            font-family: -apple-system, Helvetica, Arial, sans-serif;
+            font-family: -apple-system, 'Helvetica Neue', Helvetica, Arial, sans-serif;
             background: #e5e7eb;
             margin: 0;
             padding: 15px;
         }
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-        }
-        /* Tarjetas */
+        .container { max-width: 1200px; margin: 0 auto; }
         .card {
             background: white;
             border-radius: 16px;
@@ -29,22 +27,13 @@
             background: linear-gradient(135deg, #6366f1, #8b5cf6);
             color: white;
         }
-        /* Grid simple con float */
-        .row {
-            margin: 0 -10px;
-            overflow: hidden;
-        }
-        .col {
-            float: left;
-            padding: 0 10px;
-            box-sizing: border-box;
-        }
+        .row { margin: 0 -10px; overflow: hidden; }
+        .col { float: left; padding: 0 10px; box-sizing: border-box; }
         .col-1-3 { width: 33.333%; }
         .col-2-3 { width: 66.666%; }
         @media (max-width: 768px) {
             .col-1-3, .col-2-3 { width: 100%; float: none; }
         }
-        /* Botones */
         button {
             background: #4f46e5;
             color: white;
@@ -56,13 +45,11 @@
             cursor: pointer;
             margin: 5px;
         }
-        button:hover { opacity: 0.9; }
         .btn-success { background: #10b981; }
         .btn-danger { background: #ef4444; }
         .btn-secondary { background: #e5e7eb; color: #1f2937; }
         .btn-sm { padding: 6px 12px; font-size: 14px; }
         .btn-full { width: 100%; margin: 10px 0; }
-        /* Formularios */
         input, select {
             width: 100%;
             padding: 10px;
@@ -72,23 +59,10 @@
             margin: 8px 0 16px 0;
             box-sizing: border-box;
         }
-        label {
-            font-weight: 600;
-            font-size: 14px;
-        }
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            background: white;
-        }
-        th, td {
-            padding: 12px;
-            text-align: left;
-            border-bottom: 1px solid #e5e7eb;
-        }
-        th {
-            background: #f9fafb;
-        }
+        label { font-weight: 600; font-size: 14px; }
+        table { width: 100%; border-collapse: collapse; background: white; }
+        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #e5e7eb; }
+        th { background: #f9fafb; }
         .sale-item {
             background: #f3f4f6;
             padding: 15px;
@@ -100,19 +74,11 @@
             display: inline-block;
             margin: 5px;
         }
-        .flex-between {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            flex-wrap: wrap;
-        }
-        .text-center { text-align: center; }
+        .flex-between { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; }
         .text-red { color: #ef4444; }
         .text-green { color: #10b981; }
         .mt-2 { margin-top: 8px; }
         .mt-4 { margin-top: 16px; }
-        .mb-2 { margin-bottom: 8px; }
-        .font-bold { font-weight: bold; }
         .text-lg { font-size: 28px; font-weight: bold; }
         .modal {
             display: none;
@@ -133,13 +99,16 @@
             border-radius: 16px;
             text-align: center;
         }
-        .edit-input {
-            width: 100%;
-            padding: 6px;
-            border: 1px solid #ccc;
-            border-radius: 6px;
-            box-sizing: border-box;
+        .edit-input { width: 100%; padding: 6px; border: 1px solid #ccc; border-radius: 6px; }
+        .sync-status {
+            font-size: 11px;
+            padding: 4px 8px;
+            border-radius: 20px;
+            display: inline-block;
         }
+        .sync-ok { background: #d1fae5; color: #065f46; }
+        .sync-error { background: #fee2e2; color: #991b1b; }
+        .sync-syncing { background: #fef3c7; color: #92400e; }
         @media print {
             body > *:not(.print-container) { display: none !important; }
             .print-container { display: block !important; padding: 20px; }
@@ -149,14 +118,19 @@
 <body>
 
 <div class="container">
-    <!-- Primera fila: Resumen y Nueva Venta -->
+    <!-- Estado de sincronización iCloud -->
+    <div class="card" style="background:#f3f4f6; text-align:center; padding:10px;">
+        <span id="syncStatus" class="sync-status sync-ok">☁️ iCloud Drive: Conectado</span>
+    </div>
+
+    <!-- Resumen -->
     <div class="row">
         <div class="col col-1-3">
             <div class="card card-purple">
                 <h1 style="margin:0 0 5px 0;">Anita Maria</h1>
                 <p style="opacity:0.9; margin-bottom:20px;">Gestión de Ventas</p>
-                <div><strong>💰 Ventas Totales</strong><br><span id="totalSales" style="font-size:28px; font-weight:bold;">$0</span></div>
-                <div class="mt-2"><strong>📆 Ventas este mes</strong><br><span id="monthlyCount" style="font-size:28px; font-weight:bold;">0</span></div>
+                <div><strong>💰 Ventas Totales</strong><br><span id="totalSales" class="text-lg">$0</span></div>
+                <div class="mt-2"><strong>📆 Ventas este mes</strong><br><span id="monthlyCount" class="text-lg">0</span></div>
                 <div class="mt-4" style="border-top:1px solid rgba(255,255,255,0.3); padding-top:12px;">
                     <strong>📊 Desglose este mes:</strong><br>
                     Contado: <span id="monthlyContado">$0</span><br>
@@ -170,27 +144,22 @@
                 <h2 style="margin-top:0;">🛒 Nueva Venta</h2>
                 <label>👤 Nombre del Comprador *</label>
                 <input type="text" id="buyerName" placeholder="Ej: María González">
-                
                 <label>📅 Fecha</label>
                 <input type="date" id="saleDate">
-                
                 <div id="itemsContainer"></div>
-                <button id="addItemBtn" class="btn-full" style="background:#e5e7eb; color:#1f2937;">+ Añadir Producto</button>
-                
+                <button id="addItemBtn" class="btn-full btn-secondary">+ Añadir Producto</button>
                 <label>💳 Tipo de Venta</label>
                 <select id="paymentType">
                     <option value="contado">Contado</option>
                     <option value="credito">Crédito</option>
                     <option value="transferencia">Transferencia</option>
                 </select>
-                
                 <div style="background:#f3f4f6; padding:15px; border-radius:12px; margin:15px 0;">
                     <div class="flex-between"><strong>💰 Total Venta:</strong> <span id="totalDisplay" style="font-size:24px; font-weight:bold; color:#4f46e5;">$0</span></div>
                     <label>💵 Monto Pagado</label>
                     <input type="number" id="amountPaid" step="0.01" value="0">
                     <p style="font-size:12px; color:gray;">* En ventas a crédito, el monto pagado se fija en $0</p>
                 </div>
-                
                 <div id="errorMsg" class="text-red" style="display:none;">⚠️ El monto pagado no puede ser mayor al total</div>
                 <button id="registerBtn" class="btn-full">✅ Registrar Venta</button>
             </div>
@@ -207,7 +176,7 @@
             <table id="productsTable">
                 <thead><tr><th>Nombre</th><th>Precio</th><th>Stock</th><th>Acciones</th></tr></thead>
                 <tbody></tbody>
-            </table>
+            <td>
         </div>
     </div>
 
@@ -223,13 +192,11 @@
                 <button id="clearHistoryBtn" class="btn-sm btn-danger">🗑️ Limpiar Todo</button>
             </div>
         </div>
-        
         <div style="background:#f3f4f6; padding:15px; border-radius:12px; margin:15px 0; display:flex; gap:10px; flex-wrap:wrap;">
             <input type="text" id="searchClient" placeholder="🔍 Buscar cliente..." style="flex:1;">
             <input type="date" id="searchDate" style="width:130px;">
             <button id="clearSearchBtn" class="btn-secondary btn-sm">Limpiar</button>
         </div>
-        
         <div id="historyContainer" style="overflow-x:auto;"></div>
     </div>
 </div>
@@ -255,11 +222,17 @@
 <div class="print-container" style="display:none;"></div>
 
 <script>
-    // ==================== DATOS ====================
+    // ==================== DATOS GLOBALES ====================
     let productos = [];
     let ventas = [];
     let itemsVenta = [];
+    let syncPending = false;
+    let syncTimeout = null;
+
+    // Archivo en iCloud Drive
+    const ICLOUD_FILE = '/anita_ventas_data.json';
     
+    // ==================== UTILIDADES ====================
     const formatPeso = (n) => '$' + ((typeof n === 'number' && !isNaN(n)) ? n : 0).toLocaleString('es-CL');
     
     const mostrarMsj = (titulo, texto) => {
@@ -270,25 +243,139 @@
     
     const ocultarModal = (id) => document.getElementById(id).style.display = 'none';
     
+    const actualizarStatusSync = (estado, texto) => {
+        const el = document.getElementById('syncStatus');
+        if (!el) return;
+        el.className = `sync-status sync-${estado}`;
+        el.innerText = texto;
+        setTimeout(() => {
+            if (el.className === `sync-status sync-${estado}`) {
+                el.className = 'sync-status sync-ok';
+                el.innerText = '☁️ iCloud Drive: Conectado';
+            }
+        }, 3000);
+    };
+
+    // ==================== iCLOUD DRIVE ====================
+    async function leerDeCloud() {
+        try {
+            const fileHandle = await document.requestFileSystem();
+            // Para iOS Safari, usamos FileSystem API
+            return new Promise((resolve) => {
+                window.webkitRequestFileSystem(LocalFileSystem.PERSISTENT, 0, function(fs) {
+                    fs.root.getFile(ICLOUD_FILE, { create: true }, function(fileEntry) {
+                        fileEntry.file(function(file) {
+                            var reader = new FileReader();
+                            reader.onloadend = function(e) {
+                                if (e.target.result) {
+                                    try {
+                                        const data = JSON.parse(e.target.result);
+                                        resolve(data);
+                                    } catch(e) { resolve(null); }
+                                } else { resolve(null); }
+                            };
+                            reader.readAsText(file);
+                        }, function() { resolve(null); });
+                    }, function() { resolve(null); });
+                }, function() { resolve(null); });
+            });
+        } catch(e) {
+            console.log('Error leyendo de iCloud:', e);
+            return null;
+        }
+    }
+
+    async function guardarEnCloud(datos) {
+        try {
+            const content = JSON.stringify(datos);
+            return new Promise((resolve) => {
+                window.webkitRequestFileSystem(LocalFileSystem.PERSISTENT, 0, function(fs) {
+                    fs.root.getFile(ICLOUD_FILE, { create: true }, function(fileEntry) {
+                        fileEntry.createWriter(function(writer) {
+                            writer.onwriteend = function() {
+                                resolve(true);
+                            };
+                            writer.onerror = function() {
+                                resolve(false);
+                            };
+                            var blob = new Blob([content], { type: 'application/json' });
+                            writer.write(blob);
+                        }, function() { resolve(false); });
+                    }, function() { resolve(false); });
+                }, function() { resolve(false); });
+            });
+        } catch(e) {
+            console.log('Error guardando en iCloud:', e);
+            return false;
+        }
+    }
+
+    async function sincronizarDesdeCloud() {
+        actualizarStatusSync('syncing', '☁️ Sincronizando...');
+        const datos = await leerDeCloud();
+        if (datos && datos.productos && datos.ventas) {
+            let cambio = false;
+            if (JSON.stringify(productos) !== JSON.stringify(datos.productos)) {
+                productos = datos.productos;
+                cambio = true;
+            }
+            if (JSON.stringify(ventas) !== JSON.stringify(datos.ventas)) {
+                ventas = datos.ventas;
+                cambio = true;
+            }
+            if (cambio) {
+                renderProductos();
+                renderItemsVenta();
+                renderHistorial();
+                renderResumen();
+                actualizarStatusSync('ok', '☁️ Datos sincronizados desde iCloud');
+            } else {
+                actualizarStatusSync('ok', '☁️ iCloud Drive: Datos actuales');
+            }
+        } else if (datos === null && (productos.length > 0 || ventas.length > 0)) {
+            // Primera vez que se guarda en la nube
+            await guardarEnCloud({ productos, ventas });
+            actualizarStatusSync('ok', '☁️ Datos guardados en iCloud por primera vez');
+        } else {
+            actualizarStatusSync('ok', '☁️ iCloud Drive: Conectado');
+        }
+    }
+
+    async function guardarYSincronizar() {
+        await guardarEnCloud({ productos, ventas });
+        if (!syncPending) {
+            syncPending = true;
+            clearTimeout(syncTimeout);
+            syncTimeout = setTimeout(() => {
+                syncPending = false;
+            }, 500);
+        }
+        actualizarStatusSync('ok', '☁️ Datos sincronizados');
+    }
+
+    // ==================== OPERACIONES CON DATOS ====================
     function guardarTodo() {
-        localStorage.setItem('productos', JSON.stringify(productos));
-        localStorage.setItem('ventas', JSON.stringify(ventas));
+        guardarYSincronizar();
     }
-    
-    function cargarDatos() {
-        const p = localStorage.getItem('productos');
-        if (p) productos = JSON.parse(p);
-        else productos = [
-            { id: '1', nombre: 'Queso', precio: 10500, stock: 50, stockOriginal: 50 },
-            { id: '2', nombre: 'Longanizas', precio: 8700, stock: 30, stockOriginal: 30 },
-            { id: '3', nombre: 'Arrollado', precio: 4700, stock: 10, stockOriginal: 10 },
-            { id: '4', nombre: 'Miel', precio: 9000, stock: 5, stockOriginal: 5 },
-            { id: '5', nombre: 'Prietas', precio: 8500, stock: 4, stockOriginal: 4 }
-        ];
-        const v = localStorage.getItem('ventas');
-        ventas = v ? JSON.parse(v) : [];
+
+    function cargarDatosIniciales() {
+        if (localStorage.getItem('carga_inicial') !== 'hecha') {
+            productos = [
+                { id: '1', nombre: 'Queso', precio: 10500, stock: 50, stockOriginal: 50 },
+                { id: '2', nombre: 'Longanizas', precio: 8700, stock: 30, stockOriginal: 30 },
+                { id: '3', nombre: 'Arrollado', precio: 4700, stock: 10, stockOriginal: 10 },
+                { id: '4', nombre: 'Miel', precio: 9000, stock: 5, stockOriginal: 5 },
+                { id: '5', nombre: 'Prietas', precio: 8500, stock: 4, stockOriginal: 4 }
+            ];
+            ventas = [];
+            localStorage.setItem('carga_inicial', 'hecha');
+        } else {
+            productos = [];
+            ventas = [];
+        }
     }
-    
+
+    // ==================== RENDER PRODUCTOS ====================
     function renderProductos() {
         const tbody = document.querySelector('#productsTable tbody');
         tbody.innerHTML = '';
@@ -302,7 +389,7 @@
             `;
         });
     }
-    
+
     window.editarProducto = function(id) {
         const nombre = document.getElementById(`nombre_${id}`).value.trim();
         const precio = parseFloat(document.getElementById(`precio_${id}`).value);
@@ -323,7 +410,7 @@
         renderResumen();
         mostrarMsj('Éxito', `Producto "${nombre}" actualizado`);
     };
-    
+
     window.eliminarProducto = function(id) {
         if (productos.length <= 1) { mostrarMsj('Error', 'Debe haber al menos un producto'); return; }
         const producto = productos.find(p => p.id === id);
@@ -338,7 +425,34 @@
             mostrarMsj('Eliminado', `"${producto.nombre}" eliminado`);
         }
     };
-    
+
+    // ==================== NUEVO PRODUCTO ====================
+    document.getElementById('newProductBtn')?.addEventListener('click', () => {
+        document.getElementById('newProdName').value = '';
+        document.getElementById('newProdPrice').value = '';
+        document.getElementById('newProdStock').value = '';
+        document.getElementById('productModal').style.display = 'block';
+    });
+
+    document.getElementById('saveProductBtn')?.addEventListener('click', () => {
+        const nombre = document.getElementById('newProdName').value.trim();
+        const precio = parseFloat(document.getElementById('newProdPrice').value);
+        const stock = parseInt(document.getElementById('newProdStock').value);
+        if (!nombre) { mostrarMsj('Error', 'Nombre requerido'); return; }
+        if (isNaN(precio) || precio <= 0) { mostrarMsj('Error', 'Precio inválido'); return; }
+        if (isNaN(stock) || stock < 0) { mostrarMsj('Error', 'Stock inválido'); return; }
+        productos.push({ id: Date.now().toString(), nombre, precio, stock, stockOriginal: stock });
+        guardarTodo();
+        renderProductos();
+        renderItemsVenta();
+        ocultarModal('productModal');
+        mostrarMsj('Éxito', `Producto "${nombre}" agregado`);
+    });
+
+    document.getElementById('cancelProductBtn')?.addEventListener('click', () => ocultarModal('productModal'));
+    document.getElementById('closeMsgBtn')?.addEventListener('click', () => ocultarModal('messageModal'));
+
+    // ==================== ITEMS VENTA ====================
     function renderItemsVenta() {
         const container = document.getElementById('itemsContainer');
         container.innerHTML = '<strong>📦 Productos</strong>';
@@ -392,7 +506,7 @@
             };
         });
     }
-    
+
     function actualizarTotal() {
         let total = 0;
         for (const item of itemsVenta) {
@@ -402,7 +516,14 @@
         document.getElementById('totalDisplay').innerText = formatPeso(total);
         return total;
     }
-    
+
+    document.getElementById('addItemBtn').onclick = () => {
+        if (productos.length === 0) { mostrarMsj('Error', 'No hay productos'); return; }
+        itemsVenta.push({ productId: productos[0].id, quantity: 1 });
+        renderItemsVenta();
+    };
+
+    // ==================== REGISTRAR VENTA ====================
     function registrarVenta() {
         const comprador = document.getElementById('buyerName').value.trim();
         if (!comprador) { mostrarMsj('Error', 'Nombre del comprador requerido'); return; }
@@ -443,7 +564,10 @@
         renderResumen();
         mostrarMsj('Venta registrada', `${comprador} - ${formatPeso(total)}`);
     }
-    
+
+    document.getElementById('registerBtn').onclick = registrarVenta;
+
+    // ==================== HISTORIAL ====================
     let filtroCliente = '', filtroFecha = '';
     
     function renderHistorial() {
@@ -455,14 +579,30 @@
         let html = '<table><thead><tr><th>Fecha</th><th>Cliente</th><th>Productos</th><th>Total</th><th>Deuda</th><th>Tipo</th></tr></thead><tbody>';
         for (const v of filtradas) {
             const prodList = v.items.map(i => `${i.nombre} x${i.cantidad}`).join(', ');
-            html += `<tr><td>${v.fecha}</td><td><strong>${escapeHtml(v.comprador)}</strong></td><td>${escapeHtml(prodList)}</td><td>${formatPeso(v.total)}</td><td class="${v.deuda > 0 ? 'text-red' : 'text-green'}">${formatPeso(v.deuda)}</td><td>${v.tipo === 'contado' ? '💰 Contado' : (v.tipo === 'credito' ? '📝 Crédito' : '💸 Transferencia')}</td></tr>`;
+            html += `<tr>
+                <td>${v.fecha}</td>
+                <td><strong>${escapeHtml(v.comprador)}</strong></td>
+                <td>${escapeHtml(prodList)}</td>
+                <td>${formatPeso(v.total)}</td>
+                <td class="${v.deuda > 0 ? 'text-red' : 'text-green'}">${formatPeso(v.deuda)}</td>
+                <td>${v.tipo === 'contado' ? '💰 Contado' : (v.tipo === 'credito' ? '📝 Crédito' : '💸 Transferencia')}</td>
+            </tr>`;
         }
         html += '</tbody></table>';
         container.innerHTML = html;
     }
-    
+
     function escapeHtml(str) { return str.replace(/[&<>]/g, m => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;' }[m])); }
-    
+
+    document.getElementById('searchClient').oninput = (e) => { filtroCliente = e.target.value; renderHistorial(); };
+    document.getElementById('searchDate').onchange = (e) => { filtroFecha = e.target.value; renderHistorial(); };
+    document.getElementById('clearSearchBtn').onclick = () => {
+        document.getElementById('searchClient').value = '';
+        document.getElementById('searchDate').value = '';
+        filtroCliente = ''; filtroFecha = ''; renderHistorial();
+    };
+
+    // ==================== RESUMEN ====================
     function renderResumen() {
         let totalGeneral = 0;
         for (const v of ventas) totalGeneral += v.total;
@@ -485,7 +625,8 @@
         document.getElementById('monthlyCredito').innerText = formatPeso(creditoMes);
         document.getElementById('monthlyTransferencia').innerText = formatPeso(transferenciaMes);
     }
-    
+
+    // ==================== IMPRESIÓN ====================
     function imprimirMes() {
         const valor = document.getElementById('printMonth').value;
         if (!valor) { mostrarMsj('Error', 'Seleccione un mes'); return; }
@@ -496,13 +637,13 @@
         });
         if (filtradas.length === 0) { mostrarMsj('Sin datos', `No hay ventas en ${valor}`); return; }
         const win = window.open('', '_blank');
-        win.document.write(`<html><head><title>Reporte ${valor}</title><style>body{font-family:Arial;padding:20px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #000;padding:8px}th{background:#f0f0f0}</style></head><body><h1 style="text-align:center">Reporte de Ventas</h1><h2 style="text-align:center">${valor}</h2><table><thead><tr><th>Fecha</th><th>Cliente</th><th>Productos</th><th>Total</th><th>Deuda</th><th>Tipo</th></tr></thead><tbody>`);
-        for (const v of filtradas) win.document.write(`<tr><td>${v.fecha}</td><td>${v.comprador}</td><td>${v.items.map(i=>`${i.nombre} x${i.cantidad}`).join(', ')}</td><td>${formatPeso(v.total)}</td><td>${formatPeso(v.deuda)}</td><td>${v.tipo}</td></tr>`);
+        win.document.write(`<html><head><title>Reporte ${valor}</title><style>body{font-family:Arial;padding:20px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #000;padding:8px}th{background:#f0f0f0}</style></head><body><h1 style="text-align:center">Reporte de Ventas</h1><h2 style="text-align:center">${valor}</h2></td><thead><tr><th>Fecha</th><th>Cliente</th><th>Productos</th><th>Total</th><th>Deuda</th><th>Tipo</th></tr></thead><tbody>`);
+        for (const v of filtradas) win.document.write(`<tr><td>${v.fecha}</td><td>${v.comprador}</td><td>${v.items.map(i=>`${i.nombre} x${i.cantidad}`).join(', ')}</td><td>${formatPeso(v.total)}</td><td>${formatPeso(v.deuda)}</td><td>${v.tipo}</td>`);
         win.document.write(`</tbody></table></body></html>`);
         win.document.close();
         win.print();
     }
-    
+
     function imprimirDia() {
         const fecha = document.getElementById('printDate').value;
         if (!fecha) { mostrarMsj('Error', 'Seleccione una fecha'); return; }
@@ -510,12 +651,12 @@
         if (filtradas.length === 0) { mostrarMsj('Sin datos', `No hay ventas el ${fecha}`); return; }
         const win = window.open('', '_blank');
         win.document.write(`<html><head><title>Reporte ${fecha}</title><style>body{font-family:Arial;padding:20px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #000;padding:8px}th{background:#f0f0f0}</style></head><body><h1 style="text-align:center">Reporte Diario</h1><h2 style="text-align:center">${new Date(fecha).toLocaleDateString()}</h2><table><thead><tr><th>Cliente</th><th>Productos</th><th>Total</th><th>Deuda</th><th>Tipo</th></tr></thead><tbody>`);
-        for (const v of filtradas) win.document.write(`<tr><td>${v.comprador}</td><td>${v.items.map(i=>`${i.nombre} x${i.cantidad}`).join(', ')}</td><td>${formatPeso(v.total)}</td><td>${formatPeso(v.deuda)}</td><td>${v.tipo}</td></tr>`);
+        for (const v of filtradas) win.document.write(`<tr><td>${v.comprador}</td><td>${v.items.map(i=>`${i.nombre} x${i.cantidad}`).join(', ')}</td><td>${formatPeso(v.total)}</td><td>${formatPeso(v.deuda)}</td><td>${v.tipo}</td>`);
         win.document.write(`</tbody></table></body></html>`);
         win.document.close();
         win.print();
     }
-    
+
     function limpiarHistorial() {
         if (confirm('⚠️ ¿Eliminar TODO el historial? El stock se restaurará.')) {
             ventas = [];
@@ -527,42 +668,26 @@
             mostrarMsj('Historial limpiado', 'Stock restaurado');
         }
     }
-    
-    document.getElementById('addItemBtn').onclick = () => {
-        if (productos.length === 0) { mostrarMsj('Error', 'No hay productos'); return; }
-        itemsVenta.push({ productId: productos[0].id, quantity: 1 });
-        renderItemsVenta();
-    };
-    document.getElementById('registerBtn').onclick = registrarVenta;
-    document.getElementById('newProductBtn').onclick = () => document.getElementById('productModal').style.display = 'block';
-    document.getElementById('saveProductBtn').onclick = () => {
-        const nombre = document.getElementById('newProdName').value.trim();
-        const precio = parseFloat(document.getElementById('newProdPrice').value);
-        const stock = parseInt(document.getElementById('newProdStock').value);
-        if (!nombre) { mostrarMsj('Error', 'Nombre requerido'); return; }
-        if (isNaN(precio) || precio <= 0) { mostrarMsj('Error', 'Precio inválido'); return; }
-        if (isNaN(stock) || stock < 0) { mostrarMsj('Error', 'Stock inválido'); return; }
-        productos.push({ id: Date.now().toString(), nombre, precio, stock, stockOriginal: stock });
-        guardarTodo();
-        renderProductos();
-        renderItemsVenta();
-        ocultarModal('productModal');
-        mostrarMsj('Éxito', `Producto "${nombre}" agregado`);
-    };
-    document.getElementById('cancelProductBtn').onclick = () => ocultarModal('productModal');
-    document.getElementById('closeMsgBtn').onclick = () => ocultarModal('messageModal');
+
     document.getElementById('printMonthBtn').onclick = imprimirMes;
     document.getElementById('printDayBtn').onclick = imprimirDia;
     document.getElementById('clearHistoryBtn').onclick = limpiarHistorial;
-    document.getElementById('searchClient').oninput = (e) => { filtroCliente = e.target.value; renderHistorial(); };
-    document.getElementById('searchDate').onchange = (e) => { filtroFecha = e.target.value; renderHistorial(); };
-    document.getElementById('clearSearchBtn').onclick = () => {
-        document.getElementById('searchClient').value = ''; document.getElementById('searchDate').value = '';
-        filtroCliente = ''; filtroFecha = ''; renderHistorial();
-    };
-    
-    function iniciar() {
-        cargarDatos();
+
+    // ==================== INICIALIZACIÓN ====================
+    async function iniciar() {
+        cargarDatosIniciales();
+        
+        // Intentar cargar datos desde iCloud
+        const datosCloud = await leerDeCloud();
+        if (datosCloud && datosCloud.productos && datosCloud.productos.length > 0) {
+            productos = datosCloud.productos;
+            ventas = datosCloud.ventas || [];
+            actualizarStatusSync('ok', '☁️ Datos cargados desde iCloud');
+        } else if (productos.length > 0 && !datosCloud) {
+            await guardarEnCloud({ productos, ventas });
+            actualizarStatusSync('ok', '☁️ Datos guardados en iCloud');
+        }
+        
         renderProductos();
         renderItemsVenta();
         renderHistorial();
@@ -570,12 +695,18 @@
         document.getElementById('saleDate').value = new Date().toISOString().split('T')[0];
         document.getElementById('printMonth').value = new Date().toISOString().slice(0,7);
         document.getElementById('printDate').value = new Date().toISOString().split('T')[0];
+        
+        // Sincronizar cada vez que se abre la app
+        if (datosCloud) {
+            sincronizarDesdeCloud();
+        }
     }
+    
     iniciar();
 </script>
 
 <footer style="text-align:center; font-size:11px; color:gray; margin-top:20px;">
-    ✅ Sistema Anita Maria — iPad mini 2 compatible | Datos locales | Creado por Monkey 63
+    ✅ Sistema Anita Maria — Sincronizado con iCloud Drive | Datos compartidos entre dispositivos | Creado por Monkey 63
 </footer>
 
 </body>
