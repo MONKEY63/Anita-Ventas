@@ -176,7 +176,7 @@
             <table id="productsTable">
                 <thead><tr><th>Nombre</th><th>Precio</th><th>Stock</th><th>Acciones</th></tr></thead>
                 <tbody></tbody>
-            <td>
+            </table>
         </div>
     </div>
 
@@ -229,10 +229,8 @@
     let syncPending = false;
     let syncTimeout = null;
 
-    // Archivo en iCloud Drive
     const ICLOUD_FILE = '/anita_ventas_data.json';
     
-    // ==================== UTILIDADES ====================
     const formatPeso = (n) => '$' + ((typeof n === 'number' && !isNaN(n)) ? n : 0).toLocaleString('es-CL');
     
     const mostrarMsj = (titulo, texto) => {
@@ -258,10 +256,8 @@
 
     // ==================== iCLOUD DRIVE ====================
     async function leerDeCloud() {
-        try {
-            const fileHandle = await document.requestFileSystem();
-            // Para iOS Safari, usamos FileSystem API
-            return new Promise((resolve) => {
+        return new Promise((resolve) => {
+            try {
                 window.webkitRequestFileSystem(LocalFileSystem.PERSISTENT, 0, function(fs) {
                     fs.root.getFile(ICLOUD_FILE, { create: true }, function(fileEntry) {
                         fileEntry.file(function(file) {
@@ -269,8 +265,7 @@
                             reader.onloadend = function(e) {
                                 if (e.target.result) {
                                     try {
-                                        const data = JSON.parse(e.target.result);
-                                        resolve(data);
+                                        resolve(JSON.parse(e.target.result));
                                     } catch(e) { resolve(null); }
                                 } else { resolve(null); }
                             };
@@ -278,36 +273,30 @@
                         }, function() { resolve(null); });
                     }, function() { resolve(null); });
                 }, function() { resolve(null); });
-            });
-        } catch(e) {
-            console.log('Error leyendo de iCloud:', e);
-            return null;
-        }
+            } catch(e) {
+                resolve(null);
+            }
+        });
     }
 
     async function guardarEnCloud(datos) {
-        try {
-            const content = JSON.stringify(datos);
-            return new Promise((resolve) => {
+        return new Promise((resolve) => {
+            try {
+                const content = JSON.stringify(datos);
                 window.webkitRequestFileSystem(LocalFileSystem.PERSISTENT, 0, function(fs) {
                     fs.root.getFile(ICLOUD_FILE, { create: true }, function(fileEntry) {
                         fileEntry.createWriter(function(writer) {
-                            writer.onwriteend = function() {
-                                resolve(true);
-                            };
-                            writer.onerror = function() {
-                                resolve(false);
-                            };
+                            writer.onwriteend = function() { resolve(true); };
+                            writer.onerror = function() { resolve(false); };
                             var blob = new Blob([content], { type: 'application/json' });
                             writer.write(blob);
                         }, function() { resolve(false); });
                     }, function() { resolve(false); });
                 }, function() { resolve(false); });
-            });
-        } catch(e) {
-            console.log('Error guardando en iCloud:', e);
-            return false;
-        }
+            } catch(e) {
+                resolve(false);
+            }
+        });
     }
 
     async function sincronizarDesdeCloud() {
@@ -333,9 +322,8 @@
                 actualizarStatusSync('ok', '☁️ iCloud Drive: Datos actuales');
             }
         } else if (datos === null && (productos.length > 0 || ventas.length > 0)) {
-            // Primera vez que se guarda en la nube
             await guardarEnCloud({ productos, ventas });
-            actualizarStatusSync('ok', '☁️ Datos guardados en iCloud por primera vez');
+            actualizarStatusSync('ok', '☁️ Datos guardados en iCloud');
         } else {
             actualizarStatusSync('ok', '☁️ iCloud Drive: Conectado');
         }
@@ -346,34 +334,12 @@
         if (!syncPending) {
             syncPending = true;
             clearTimeout(syncTimeout);
-            syncTimeout = setTimeout(() => {
-                syncPending = false;
-            }, 500);
+            syncTimeout = setTimeout(() => { syncPending = false; }, 500);
         }
         actualizarStatusSync('ok', '☁️ Datos sincronizados');
     }
 
-    // ==================== OPERACIONES CON DATOS ====================
-    function guardarTodo() {
-        guardarYSincronizar();
-    }
-
-    function cargarDatosIniciales() {
-        if (localStorage.getItem('carga_inicial') !== 'hecha') {
-            productos = [
-                { id: '1', nombre: 'Queso', precio: 10500, stock: 50, stockOriginal: 50 },
-                { id: '2', nombre: 'Longanizas', precio: 8700, stock: 30, stockOriginal: 30 },
-                { id: '3', nombre: 'Arrollado', precio: 4700, stock: 10, stockOriginal: 10 },
-                { id: '4', nombre: 'Miel', precio: 9000, stock: 5, stockOriginal: 5 },
-                { id: '5', nombre: 'Prietas', precio: 8500, stock: 4, stockOriginal: 4 }
-            ];
-            ventas = [];
-            localStorage.setItem('carga_inicial', 'hecha');
-        } else {
-            productos = [];
-            ventas = [];
-        }
-    }
+    function guardarTodo() { guardarYSincronizar(); }
 
     // ==================== RENDER PRODUCTOS ====================
     function renderProductos() {
@@ -441,7 +407,8 @@
         if (!nombre) { mostrarMsj('Error', 'Nombre requerido'); return; }
         if (isNaN(precio) || precio <= 0) { mostrarMsj('Error', 'Precio inválido'); return; }
         if (isNaN(stock) || stock < 0) { mostrarMsj('Error', 'Stock inválido'); return; }
-        productos.push({ id: Date.now().toString(), nombre, precio, stock, stockOriginal: stock });
+        const nuevoId = Date.now().toString();
+        productos.push({ id: nuevoId, nombre, precio, stock, stockOriginal: stock });
         guardarTodo();
         renderProductos();
         renderItemsVenta();
@@ -478,7 +445,7 @@
         
         document.querySelectorAll('.item-select').forEach(sel => {
             sel.onchange = (e) => {
-                const idx = parseInt(e.target.dataset.idx);
+                const idx = parseInt(e.target.getAttribute('data-idx'));
                 if (!isNaN(idx) && itemsVenta[idx]) {
                     itemsVenta[idx].productId = e.target.value;
                     actualizarTotal();
@@ -487,7 +454,7 @@
         });
         document.querySelectorAll('.item-qty').forEach(inp => {
             inp.onchange = (e) => {
-                const idx = parseInt(e.target.dataset.idx);
+                const idx = parseInt(e.target.getAttribute('data-idx'));
                 let qty = parseInt(e.target.value);
                 if (isNaN(qty) || qty < 1) qty = 1;
                 if (!isNaN(idx) && itemsVenta[idx]) {
@@ -498,7 +465,7 @@
         });
         document.querySelectorAll('.remove-item').forEach(btn => {
             btn.onclick = (e) => {
-                const idx = parseInt(e.target.dataset.idx);
+                const idx = parseInt(btn.getAttribute('data-idx'));
                 if (!isNaN(idx)) {
                     itemsVenta.splice(idx, 1);
                     renderItemsVenta();
@@ -517,14 +484,18 @@
         return total;
     }
 
-    document.getElementById('addItemBtn').onclick = () => {
-        if (productos.length === 0) { mostrarMsj('Error', 'No hay productos'); return; }
+    // BOTÓN AÑADIR PRODUCTO - CORREGIDO
+    document.getElementById('addItemBtn').onclick = function() {
+        if (productos.length === 0) {
+            mostrarMsj('Error', 'No hay productos. Crea uno primero.');
+            return;
+        }
         itemsVenta.push({ productId: productos[0].id, quantity: 1 });
         renderItemsVenta();
     };
 
-    // ==================== REGISTRAR VENTA ====================
-    function registrarVenta() {
+    // REGISTRAR VENTA
+    document.getElementById('registerBtn').onclick = function() {
         const comprador = document.getElementById('buyerName').value.trim();
         if (!comprador) { mostrarMsj('Error', 'Nombre del comprador requerido'); return; }
         if (itemsVenta.length === 0) { mostrarMsj('Error', 'Agregue al menos un producto'); return; }
@@ -563,9 +534,7 @@
         renderHistorial();
         renderResumen();
         mostrarMsj('Venta registrada', `${comprador} - ${formatPeso(total)}`);
-    }
-
-    document.getElementById('registerBtn').onclick = registrarVenta;
+    };
 
     // ==================== HISTORIAL ====================
     let filtroCliente = '', filtroFecha = '';
@@ -580,15 +549,15 @@
         for (const v of filtradas) {
             const prodList = v.items.map(i => `${i.nombre} x${i.cantidad}`).join(', ');
             html += `<tr>
-                <td>${v.fecha}</td>
-                <td><strong>${escapeHtml(v.comprador)}</strong></td>
-                <td>${escapeHtml(prodList)}</td>
-                <td>${formatPeso(v.total)}</td>
-                <td class="${v.deuda > 0 ? 'text-red' : 'text-green'}">${formatPeso(v.deuda)}</td>
-                <td>${v.tipo === 'contado' ? '💰 Contado' : (v.tipo === 'credito' ? '📝 Crédito' : '💸 Transferencia')}</td>
-            </tr>`;
+                <td style="padding:12px;">${v.fecha}</td>
+                <td style="padding:12px;"><strong>${escapeHtml(v.comprador)}</strong></td>
+                <td style="padding:12px;">${escapeHtml(prodList)}</td>
+                <td style="padding:12px;">${formatPeso(v.total)}</td>
+                <td style="padding:12px;" class="${v.deuda > 0 ? 'text-red' : 'text-green'}">${formatPeso(v.deuda)}</td>
+                <td style="padding:12px;">${v.tipo === 'contado' ? '💰 Contado' : (v.tipo === 'credito' ? '📝 Crédito' : '💸 Transferencia')}</td>
+             </tr>`;
         }
-        html += '</tbody></table>';
+        html += '</tbody><tr>';
         container.innerHTML = html;
     }
 
@@ -637,8 +606,17 @@
         });
         if (filtradas.length === 0) { mostrarMsj('Sin datos', `No hay ventas en ${valor}`); return; }
         const win = window.open('', '_blank');
-        win.document.write(`<html><head><title>Reporte ${valor}</title><style>body{font-family:Arial;padding:20px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #000;padding:8px}th{background:#f0f0f0}</style></head><body><h1 style="text-align:center">Reporte de Ventas</h1><h2 style="text-align:center">${valor}</h2></td><thead><tr><th>Fecha</th><th>Cliente</th><th>Productos</th><th>Total</th><th>Deuda</th><th>Tipo</th></tr></thead><tbody>`);
-        for (const v of filtradas) win.document.write(`<tr><td>${v.fecha}</td><td>${v.comprador}</td><td>${v.items.map(i=>`${i.nombre} x${i.cantidad}`).join(', ')}</td><td>${formatPeso(v.total)}</td><td>${formatPeso(v.deuda)}</td><td>${v.tipo}</td>`);
+        win.document.write(`<html><head><title>Reporte ${valor}</title><style>body{font-family:Arial;padding:20px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #000;padding:8px}th{background:#f0f0f0}</style></head><body><h1 style="text-align:center">Reporte de Ventas</h1><h2 style="text-align:center">${valor}</h2><table><thead><tr><th>Fecha</th><th>Cliente</th><th>Productos</th><th>Total</th><th>Deuda</th><th>Tipo</th></tr></thead><tbody>`);
+        for (const v of filtradas) {
+            win.document.write(`<tr>
+                <td>${v.fecha}</td>
+                <td>${v.comprador}</td>
+                <td>${v.items.map(i=>`${i.nombre} x${i.cantidad}`).join(', ')}</td>
+                <td>${formatPeso(v.total)}</td>
+                <td>${formatPeso(v.deuda)}</td>
+                <td>${v.tipo}</td>
+            </tr>`);
+        }
         win.document.write(`</tbody></table></body></html>`);
         win.document.close();
         win.print();
@@ -651,7 +629,15 @@
         if (filtradas.length === 0) { mostrarMsj('Sin datos', `No hay ventas el ${fecha}`); return; }
         const win = window.open('', '_blank');
         win.document.write(`<html><head><title>Reporte ${fecha}</title><style>body{font-family:Arial;padding:20px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #000;padding:8px}th{background:#f0f0f0}</style></head><body><h1 style="text-align:center">Reporte Diario</h1><h2 style="text-align:center">${new Date(fecha).toLocaleDateString()}</h2><table><thead><tr><th>Cliente</th><th>Productos</th><th>Total</th><th>Deuda</th><th>Tipo</th></tr></thead><tbody>`);
-        for (const v of filtradas) win.document.write(`<tr><td>${v.comprador}</td><td>${v.items.map(i=>`${i.nombre} x${i.cantidad}`).join(', ')}</td><td>${formatPeso(v.total)}</td><td>${formatPeso(v.deuda)}</td><td>${v.tipo}</td>`);
+        for (const v of filtradas) {
+            win.document.write(`<tr>
+                <td>${v.comprador}</td>
+                <td>${v.items.map(i=>`${i.nombre} x${i.cantidad}`).join(', ')}</td>
+                <td>${formatPeso(v.total)}</td>
+                <td>${formatPeso(v.deuda)}</td>
+                <td>${v.tipo}</td>
+            </tr>`);
+        }
         win.document.write(`</tbody></table></body></html>`);
         win.document.close();
         win.print();
@@ -675,15 +661,26 @@
 
     // ==================== INICIALIZACIÓN ====================
     async function iniciar() {
-        cargarDatosIniciales();
+        // Datos iniciales
+        const saved = localStorage.getItem('anita_ventas_inicial');
+        if (!saved) {
+            productos = [
+                { id: '1', nombre: 'Queso', precio: 10500, stock: 50, stockOriginal: 50 },
+                { id: '2', nombre: 'Longanizas', precio: 8700, stock: 30, stockOriginal: 30 },
+                { id: '3', nombre: 'Arrollado', precio: 4700, stock: 10, stockOriginal: 10 },
+                { id: '4', nombre: 'Miel', precio: 9000, stock: 5, stockOriginal: 5 },
+                { id: '5', nombre: 'Prietas', precio: 8500, stock: 4, stockOriginal: 4 }
+            ];
+            ventas = [];
+            localStorage.setItem('anita_ventas_inicial', 'hecho');
+        }
         
-        // Intentar cargar datos desde iCloud
         const datosCloud = await leerDeCloud();
         if (datosCloud && datosCloud.productos && datosCloud.productos.length > 0) {
             productos = datosCloud.productos;
             ventas = datosCloud.ventas || [];
             actualizarStatusSync('ok', '☁️ Datos cargados desde iCloud');
-        } else if (productos.length > 0 && !datosCloud) {
+        } else if (productos.length > 0) {
             await guardarEnCloud({ productos, ventas });
             actualizarStatusSync('ok', '☁️ Datos guardados en iCloud');
         }
@@ -696,10 +693,7 @@
         document.getElementById('printMonth').value = new Date().toISOString().slice(0,7);
         document.getElementById('printDate').value = new Date().toISOString().split('T')[0];
         
-        // Sincronizar cada vez que se abre la app
-        if (datosCloud) {
-            sincronizarDesdeCloud();
-        }
+        sincronizarDesdeCloud();
     }
     
     iniciar();
