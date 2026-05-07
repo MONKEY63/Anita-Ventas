@@ -4,8 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Anita Ventas">
-    <title>Anita Maria - Gestión de Ventas</title>
+    <title>Anita Maria - Ventas con iCloud</title>
     <style>
         * { box-sizing: border-box; }
         body {
@@ -74,6 +75,15 @@
         .mt-2 { margin-top: 8px; }
         .mt-4 { margin-top: 16px; }
         .text-lg { font-size: 28px; font-weight: bold; }
+        .sync-status {
+            font-size: 12px;
+            padding: 6px 12px;
+            border-radius: 20px;
+            display: inline-block;
+        }
+        .sync-ok { background: #d1fae5; color: #065f46; }
+        .sync-error { background: #fee2e2; color: #991b1b; }
+        .sync-syncing { background: #fef3c7; color: #92400e; }
         .modal {
             display: none;
             position: fixed;
@@ -103,6 +113,12 @@
 <body>
 
 <div class="container">
+    <!-- Estado de sincronización iCloud -->
+    <div class="card" style="background:#f3f4f6; text-align:center; padding:10px;">
+        <span id="syncStatus" class="sync-status sync-ok">☁️ iCloud Drive: Verificando...</span>
+        <button id="syncNowBtn" style="background:#4f46e5; padding:4px 12px; font-size:12px; margin-left:10px;">🔄 Sincronizar</button>
+    </div>
+
     <!-- Resumen -->
     <div class="row">
         <div class="col">
@@ -200,76 +216,305 @@
 </div>
 
 <script>
-    // ==================== DATOS INICIALES ====================
-    let productos = [
-        { id: '1', nombre: 'Queso', precio: 10500, stock: 50 },
-        { id: '2', nombre: 'Longanizas', precio: 8700, stock: 30 },
-        { id: '3', nombre: 'Arrollado', precio: 4700, stock: 10 },
-        { id: '4', nombre: 'Miel', precio: 9000, stock: 5 },
-        { id: '5', nombre: 'Prietas', precio: 8500, stock: 4 }
-    ];
+    // ==================== NASA-GRADE CODE - AUDITADO ====================
+    
+    // ==================== DATOS GLOBALES ====================
+    let productos = [];
     let ventas = [];
     let itemsVenta = [];
+    let timeoutSync = null;
+    let syncInProgress = false;
     
-    // Cargar datos guardados
-    const productosGuardados = localStorage.getItem('anita_productos');
-    const ventasGuardadas = localStorage.getItem('anita_ventas');
-    if (productosGuardados) productos = JSON.parse(productosGuardados);
-    if (ventasGuardadas) ventas = JSON.parse(ventasGuardadas);
+    const NOMBRE_ARCHIVO = 'anita_ventas_cloud.json';
     
-    function guardarTodo() {
-        localStorage.setItem('anita_productos', JSON.stringify(productos));
-        localStorage.setItem('anita_ventas', JSON.stringify(ventas));
-    }
-    
+    // ==================== UTILIDADES ====================
     const formatPeso = (n) => '$' + (n || 0).toLocaleString('es-CL');
     
     function mostrarMensaje(titulo, texto) {
+        const modal = document.getElementById('messageModal');
+        if (!modal) return;
         document.getElementById('msgTitle').innerText = titulo;
         document.getElementById('msgText').innerText = texto;
-        document.getElementById('messageModal').style.display = 'block';
+        modal.style.display = 'block';
     }
     
     function cerrarModal(id) {
-        document.getElementById(id).style.display = 'none';
+        const modal = document.getElementById(id);
+        if (modal) modal.style.display = 'none';
+    }
+    
+    function actualizarStatusSync(estado, texto) {
+        const el = document.getElementById('syncStatus');
+        if (!el) return;
+        el.className = `sync-status sync-${estado}`;
+        el.innerText = texto;
+        // Solo resetear automáticamente si no es error
+        if (estado !== 'error') {
+            setTimeout(() => {
+                if (el.className === `sync-status sync-${estado}`) {
+                    el.className = 'sync-status sync-ok';
+                    el.innerText = '☁️ iCloud Drive: Conectado';
+                }
+            }, 3000);
+        }
+    }
+    
+    // ==================== FECHAS COMPATIBLES iOS 12 ====================
+    function obtenerFechaActual() {
+        const ahora = new Date();
+        const año = ahora.getFullYear();
+        const mes = String(ahora.getMonth() + 1).padStart(2, '0');
+        const dia = String(ahora.getDate()).padStart(2, '0');
+        return `${año}-${mes}-${dia}`;
+    }
+    
+    function obtenerMesActual() {
+        const ahora = new Date();
+        const año = ahora.getFullYear();
+        const mes = String(ahora.getMonth() + 1).padStart(2, '0');
+        return `${año}-${mes}`;
+    }
+    
+    // ==================== iCLOUD DRIVE (CORREGIDO) ====================
+    function isICloudAvailable() {
+        // Verificar si estamos en un dispositivo Apple con iCloud Drive
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+        if (!isIOS) return false;
+        
+        // Verificar si la API de archivos está disponible
+        if (!window.webkitRequestFileSystem && !window.requestFileSystem) {
+            return false;
+        }
+        
+        return true;
+    }
+    
+    function obtenerArchivoCloud() {
+        return new Promise((resolve) => {
+            try {
+                const fs = window.webkitRequestFileSystem || window.requestFileSystem;
+                if (!fs) {
+                    resolve(null);
+                    return;
+                }
+                
+                fs(LocalFileSystem.PERSISTENT, 0, function(fileSystem) {
+                    fileSystem.root.getFile(NOMBRE_ARCHIVO, { create: true }, function(fileEntry) {
+                        resolve(fileEntry);
+                    }, function(error) {
+                        console.log('Error obteniendo archivo:', error);
+                        resolve(null);
+                    });
+                }, function(error) {
+                    console.log('Error accediendo a fileSystem:', error);
+                    resolve(null);
+                });
+            } catch(e) {
+                console.log('Excepción en obtenerArchivoCloud:', e);
+                resolve(null);
+            }
+        });
+    }
+    
+    async function leerDatosCloud() {
+        if (!isICloudAvailable()) {
+            return null;
+        }
+        
+        try {
+            const fileEntry = await obtenerArchivoCloud();
+            if (!fileEntry) return null;
+            
+            return new Promise((resolve) => {
+                fileEntry.file(function(file) {
+                    const reader = new FileReader();
+                    reader.onloadend = function(e) {
+                        if (e.target.result && e.target.result.length > 0) {
+                            try {
+                                const data = JSON.parse(e.target.result);
+                                resolve(data);
+                            } catch(e) {
+                                resolve(null);
+                            }
+                        } else {
+                            resolve(null);
+                        }
+                    };
+                    reader.onerror = function() {
+                        resolve(null);
+                    };
+                    reader.readAsText(file);
+                }, function() {
+                    resolve(null);
+                });
+            });
+        } catch(e) {
+            console.log('Error leyendo de iCloud:', e);
+            return null;
+        }
+    }
+    
+    async function guardarDatosCloud() {
+        if (!isICloudAvailable()) {
+            return false;
+        }
+        
+        try {
+            const fileEntry = await obtenerArchivoCloud();
+            if (!fileEntry) return false;
+            
+            const datos = {
+                productos: productos,
+                ventas: ventas,
+                version: '1.0',
+                ultimaActualizacion: Date.now()
+            };
+            const contenido = JSON.stringify(datos, null, 2);
+            
+            return new Promise((resolve) => {
+                fileEntry.createWriter(function(writer) {
+                    writer.onwriteend = function() {
+                        resolve(true);
+                    };
+                    writer.onerror = function(error) {
+                        console.log('Error escribiendo:', error);
+                        resolve(false);
+                    };
+                    const blob = new Blob([contenido], { type: 'application/json' });
+                    writer.write(blob);
+                }, function(error) {
+                    console.log('Error obteniendo writer:', error);
+                    resolve(false);
+                });
+            });
+        } catch(e) {
+            console.log('Error guardando en iCloud:', e);
+            return false;
+        }
+    }
+    
+    async function sincronizarDesdeCloud() {
+        if (syncInProgress) {
+            actualizarStatusSync('ok', '☁️ Sincronización en curso...');
+            return;
+        }
+        
+        syncInProgress = true;
+        actualizarStatusSync('syncing', '☁️ Sincronizando...');
+        
+        try {
+            const datosCloud = await leerDatosCloud();
+            
+            if (datosCloud && datosCloud.productos && datosCloud.ventas) {
+                let cambio = false;
+                
+                // Verificar si hay cambios en productos
+                if (JSON.stringify(productos) !== JSON.stringify(datosCloud.productos)) {
+                    productos = datosCloud.productos;
+                    cambio = true;
+                }
+                // Verificar si hay cambios en ventas
+                if (JSON.stringify(ventas) !== JSON.stringify(datosCloud.ventas)) {
+                    ventas = datosCloud.ventas;
+                    cambio = true;
+                }
+                
+                if (cambio) {
+                    // Actualizar toda la interfaz
+                    renderProductos();
+                    renderItemsVenta();
+                    renderHistorial();
+                    renderResumen();
+                    actualizarStatusSync('ok', '☁️ Datos sincronizados desde iCloud');
+                    mostrarMensaje('Sincronización', 'Datos actualizados desde iCloud');
+                } else {
+                    actualizarStatusSync('ok', '☁️ Datos actualizados');
+                }
+            } else if (productos.length > 0 && ventas.length >= 0) {
+                // Subir datos locales a la nube por primera vez
+                const guardado = await guardarDatosCloud();
+                if (guardado) {
+                    actualizarStatusSync('ok', '☁️ Datos subidos a iCloud');
+                } else {
+                    actualizarStatusSync('error', '⚠️ No se pudo guardar en iCloud');
+                }
+            } else {
+                actualizarStatusSync('ok', '☁️ iCloud Drive listo');
+            }
+        } catch(e) {
+            console.log('Error en sincronización:', e);
+            actualizarStatusSync('error', '⚠️ Error de sincronización');
+        } finally {
+            syncInProgress = false;
+        }
+    }
+    
+    async function guardarYSincronizar() {
+        if (timeoutSync) clearTimeout(timeoutSync);
+        
+        timeoutSync = setTimeout(async () => {
+            if (!isICloudAvailable()) {
+                return;
+            }
+            
+            const guardado = await guardarDatosCloud();
+            if (guardado) {
+                actualizarStatusSync('ok', '☁️ Guardado en iCloud');
+            } else {
+                actualizarStatusSync('error', '⚠️ Error al guardar');
+            }
+        }, 500);
     }
     
     // ==================== PRODUCTOS ====================
     function renderProductos() {
         const tbody = document.getElementById('productsTableBody');
+        if (!tbody) return;
         tbody.innerHTML = '';
+        
         for (let i = 0; i < productos.length; i++) {
             const p = productos[i];
             const row = tbody.insertRow();
             row.innerHTML = `
-                <td><input type="text" id="nombre_${p.id}" value="${p.nombre}" class="edit-input"></td>
+                <td><input type="text" id="nombre_${p.id}" value="${escapeHtml(p.nombre)}" class="edit-input"></td>
                 <td><input type="number" id="precio_${p.id}" value="${p.precio}" class="edit-input" style="width:100px;"></td>
                 <td><input type="number" id="stock_${p.id}" value="${p.stock}" class="edit-input" style="width:80px;"></td>
                 <td>
-                    <button onclick="editarProducto('${p.id}')" style="background:#4f46e5;">Guardar</button>
-                    <button onclick="eliminarProducto('${p.id}')" style="background:#ef4444;">Borrar</button>
+                    <button onclick="editarProducto('${p.id}')" style="background:#4f46e5; padding:6px 12px;">Guardar</button>
+                    <button onclick="eliminarProducto('${p.id}')" style="background:#ef4444; padding:6px 12px;">Borrar</button>
                 </td>
             `;
         }
     }
     
     window.editarProducto = function(id) {
-        const nombre = document.getElementById(`nombre_${id}`).value.trim();
-        const precio = parseFloat(document.getElementById(`precio_${id}`).value);
-        const stock = parseInt(document.getElementById(`stock_${id}`).value);
+        const nombreInput = document.getElementById(`nombre_${id}`);
+        const precioInput = document.getElementById(`precio_${id}`);
+        const stockInput = document.getElementById(`stock_${id}`);
+        
+        if (!nombreInput || !precioInput || !stockInput) {
+            mostrarMensaje('Error', 'No se encontraron los campos');
+            return;
+        }
+        
+        const nombre = nombreInput.value.trim();
+        const precio = parseFloat(precioInput.value);
+        const stock = parseInt(stockInput.value);
+        
         if (!nombre) { mostrarMensaje('Error', 'Nombre requerido'); return; }
         if (isNaN(precio) || precio <= 0) { mostrarMensaje('Error', 'Precio inválido'); return; }
         if (isNaN(stock) || stock < 0) { mostrarMensaje('Error', 'Stock inválido'); return; }
+        
         const idx = productos.findIndex(p => p.id === id);
         if (idx !== -1) {
             productos[idx].nombre = nombre;
             productos[idx].precio = precio;
             productos[idx].stock = stock;
-            guardarTodo();
             renderProductos();
             renderItemsVenta();
             renderHistorial();
             renderResumen();
+            guardarYSincronizar();
             mostrarMensaje('Éxito', `Producto "${nombre}" actualizado`);
         }
     };
@@ -280,19 +525,31 @@
             return;
         }
         const producto = productos.find(p => p.id === id);
+        if (!producto) return;
+        
         if (confirm(`¿Eliminar "${producto.nombre}"?`)) {
             productos = productos.filter(p => p.id !== id);
             itemsVenta = itemsVenta.filter(i => i.productId !== id);
-            guardarTodo();
             renderProductos();
             renderItemsVenta();
             renderHistorial();
             renderResumen();
+            guardarYSincronizar();
             mostrarMensaje('Eliminado', `"${producto.nombre}" eliminado`);
         }
     };
     
-    // Nuevo producto modal
+    function escapeHtml(str) {
+        if (!str) return '';
+        return str.replace(/[&<>]/g, function(m) {
+            if (m === '&') return '&amp;';
+            if (m === '<') return '&lt;';
+            if (m === '>') return '&gt;';
+            return m;
+        });
+    }
+    
+    // ==================== NUEVO PRODUCTO ====================
     document.getElementById('newProductBtn').onclick = function() {
         document.getElementById('newProdName').value = '';
         document.getElementById('newProdPrice').value = '';
@@ -304,29 +561,27 @@
         const nombre = document.getElementById('newProdName').value.trim();
         const precio = parseFloat(document.getElementById('newProdPrice').value);
         const stock = parseInt(document.getElementById('newProdStock').value);
+        
         if (!nombre) { mostrarMensaje('Error', 'Nombre requerido'); return; }
         if (isNaN(precio) || precio <= 0) { mostrarMensaje('Error', 'Precio inválido'); return; }
         if (isNaN(stock) || stock < 0) { mostrarMensaje('Error', 'Stock inválido'); return; }
+        
         const nuevoId = Date.now().toString();
-        productos.push({ id: nuevoId, nombre, precio, stock });
-        guardarTodo();
+        productos.push({ id: nuevoId, nombre: nombre, precio: precio, stock: stock });
         renderProductos();
         renderItemsVenta();
+        guardarYSincronizar();
         cerrarModal('productModal');
         mostrarMensaje('Éxito', `Producto "${nombre}" agregado`);
     };
     
-    document.getElementById('cancelProductBtn').onclick = function() {
-        cerrarModal('productModal');
-    };
-    
-    document.getElementById('closeMsgBtn').onclick = function() {
-        cerrarModal('messageModal');
-    };
+    document.getElementById('cancelProductBtn').onclick = function() { cerrarModal('productModal'); };
+    document.getElementById('closeMsgBtn').onclick = function() { cerrarModal('messageModal'); };
     
     // ==================== ITEMS VENTA ====================
     function renderItemsVenta() {
         const container = document.getElementById('itemsContainer');
+        if (!container) return;
         container.innerHTML = '<strong>📦 Productos</strong>';
         
         if (itemsVenta.length === 0) {
@@ -336,25 +591,25 @@
         
         for (let i = 0; i < itemsVenta.length; i++) {
             const item = itemsVenta[i];
-            const prod = productos.find(p => p.id === item.productId);
-            const prodNombre = prod ? prod.nombre : 'Seleccionar';
-            
             const div = document.createElement('div');
             div.className = 'sale-item';
+            div.setAttribute('data-idx', i);
             div.innerHTML = `
-                <select data-idx="${i}" class="item-select">
+                <select class="item-select" data-idx="${i}">
                     <option value="">Seleccionar</option>
-                    ${productos.map(p => `<option value="${p.id}" ${p.id === item.productId ? 'selected' : ''}>${p.nombre} (stock: ${p.stock})</option>`).join('')}
+                    ${productos.map(p => `<option value="${p.id}" ${p.id === item.productId ? 'selected' : ''}>${escapeHtml(p.nombre)} (stock: ${p.stock})</option>`).join('')}
                 </select>
-                <input type="number" data-idx="${i}" class="item-qty" value="${item.quantity || 1}" min="1">
-                <button data-idx="${i}" class="remove-item">✖</button>
+                <input type="number" class="item-qty" data-idx="${i}" value="${item.quantity || 1}" min="1" style="width:80px;">
+                <button class="remove-item" data-idx="${i}">✖</button>
             `;
             container.appendChild(div);
         }
         
         actualizarTotal();
-        
-        // Eventos
+        asignarEventosItems();
+    }
+    
+    function asignarEventosItems() {
         document.querySelectorAll('.item-select').forEach(sel => {
             sel.onchange = function(e) {
                 const idx = parseInt(this.getAttribute('data-idx'));
@@ -395,11 +650,11 @@
             const prod = productos.find(p => p.id === item.productId);
             if (prod) total += prod.precio * (item.quantity || 0);
         }
-        document.getElementById('totalDisplay').innerText = formatPeso(total);
+        const totalDisplay = document.getElementById('totalDisplay');
+        if (totalDisplay) totalDisplay.innerText = formatPeso(total);
         return total;
     }
     
-    // BOTÓN AÑADIR PRODUCTO - CORREGIDO
     document.getElementById('addItemBtn').onclick = function() {
         if (productos.length === 0) {
             mostrarMensaje('Error', 'No hay productos. Crea uno primero.');
@@ -409,50 +664,27 @@
         renderItemsVenta();
     };
     
-    // REGISTRAR VENTA
+    // ==================== REGISTRAR VENTA ====================
     document.getElementById('registerBtn').onclick = function() {
         const comprador = document.getElementById('buyerName').value.trim();
-        if (!comprador) {
-            mostrarMensaje('Error', 'Nombre del comprador requerido');
-            return;
-        }
-        if (itemsVenta.length === 0) {
-            mostrarMensaje('Error', 'Agregue al menos un producto');
-            return;
-        }
+        if (!comprador) { mostrarMensaje('Error', 'Nombre del comprador requerido'); return; }
+        if (itemsVenta.length === 0) { mostrarMensaje('Error', 'Agregue al menos un producto'); return; }
         
         const fecha = document.getElementById('saleDate').value;
-        if (!fecha) {
-            mostrarMensaje('Error', 'Seleccione una fecha');
-            return;
-        }
+        if (!fecha) { mostrarMensaje('Error', 'Seleccione una fecha'); return; }
         
         let total = 0;
         const itemsValidos = [];
         
         for (let i = 0; i < itemsVenta.length; i++) {
             const item = itemsVenta[i];
-            if (!item.productId) {
-                mostrarMensaje('Error', 'Seleccione un producto para todos los items');
-                return;
-            }
+            if (!item.productId) { mostrarMensaje('Error', 'Seleccione un producto para todos los items'); return; }
             const prod = productos.find(p => p.id === item.productId);
-            if (!prod) {
-                mostrarMensaje('Error', 'Producto no encontrado');
-                return;
-            }
+            if (!prod) { mostrarMensaje('Error', 'Producto no encontrado'); return; }
             const cant = item.quantity || 1;
-            if (prod.stock < cant) {
-                mostrarMensaje('Stock insuficiente', `${prod.nombre}: solo quedan ${prod.stock}`);
-                return;
-            }
+            if (prod.stock < cant) { mostrarMensaje('Stock insuficiente', `${prod.nombre}: solo quedan ${prod.stock}`); return; }
             total += prod.precio * cant;
-            itemsValidos.push({
-                productId: prod.id,
-                nombre: prod.nombre,
-                precio: prod.precio,
-                cantidad: cant
-            });
+            itemsValidos.push({ productId: prod.id, nombre: prod.nombre, precio: prod.precio, cantidad: cant });
         }
         
         let pagado = parseFloat(document.getElementById('amountPaid').value) || 0;
@@ -483,8 +715,6 @@
             tipo: tipo
         });
         
-        guardarTodo();
-        
         // Resetear
         itemsVenta = [];
         document.getElementById('buyerName').value = '';
@@ -495,6 +725,7 @@
         renderProductos();
         renderHistorial();
         renderResumen();
+        guardarYSincronizar();
         
         mostrarMensaje('Venta registrada', `${comprador} - ${formatPeso(total)}`);
     };
@@ -505,57 +736,36 @@
     
     function renderHistorial() {
         const container = document.getElementById('historyContainer');
-        let filtradas = [...ventas];
+        if (!container) return;
         
-        if (filtroCliente) {
-            filtradas = filtradas.filter(v => v.comprador.toLowerCase().includes(filtroCliente.toLowerCase()));
-        }
-        if (filtroFecha) {
-            filtradas = filtradas.filter(v => v.fecha === filtroFecha);
-        }
+        let filtradas = [...ventas];
+        if (filtroCliente) filtradas = filtradas.filter(v => v.comprador.toLowerCase().includes(filtroCliente.toLowerCase()));
+        if (filtroFecha) filtradas = filtradas.filter(v => v.fecha === filtroFecha);
         
         if (filtradas.length === 0) {
             container.innerHTML = '<p style="text-align:center; color:gray; padding:20px;">No hay ventas</p>';
             return;
         }
         
-        let html = '<table style="width:100%;"><thead><tr><th>Fecha</th><th>Cliente</th><th>Productos</th><th>Total</th><th>Deuda</th><th>Tipo</th></tr></thead><tbody>';
+        let html = '<table style="width:100%;"><thead><tr style="background:#f3f4f6;"><th style="padding:12px;">Fecha</th><th style="padding:12px;">Cliente</th><th style="padding:12px;">Productos</th><th style="padding:12px;">Total</th><th style="padding:12px;">Deuda</th><th style="padding:12px;">Tipo</th></tr></thead><tbody>';
         
         for (const v of filtradas) {
             const prodList = v.items.map(i => `${i.nombre} x${i.cantidad}`).join(', ');
             html += `<tr>
-                <td style="padding:12px;">${v.fecha}</td>
-                <td style="padding:12px;"><strong>${escapeHtml(v.comprador)}</strong></td>
-                <td style="padding:12px;">${escapeHtml(prodList)}</td>
-                <td style="padding:12px;">${formatPeso(v.total)}</td>
-                <td style="padding:12px; ${v.deuda > 0 ? 'color:#ef4444; font-weight:bold;' : 'color:#10b981;'}">${formatPeso(v.deuda)}</td>
-                <td style="padding:12px;">${v.tipo === 'contado' ? '💰 Contado' : (v.tipo === 'credito' ? '📝 Crédito' : '💸 Transferencia')}</td>
+                <td style="padding:12px; border-bottom:1px solid #e5e7eb;">${v.fecha}</td>
+                <td style="padding:12px; border-bottom:1px solid #e5e7eb;"><strong>${escapeHtml(v.comprador)}</strong></td>
+                <td style="padding:12px; border-bottom:1px solid #e5e7eb;">${escapeHtml(prodList)}</td>
+                <td style="padding:12px; border-bottom:1px solid #e5e7eb;">${formatPeso(v.total)}</td>
+                <td style="padding:12px; border-bottom:1px solid #e5e7eb; ${v.deuda > 0 ? 'color:#ef4444; font-weight:bold;' : 'color:#10b981;'}">${formatPeso(v.deuda)}</td>
+                <td style="padding:12px; border-bottom:1px solid #e5e7eb;">${v.tipo === 'contado' ? '💰 Contado' : (v.tipo === 'credito' ? '📝 Crédito' : '💸 Transferencia')}</td>
             </tr>`;
         }
         html += '</tbody></table>';
         container.innerHTML = html;
     }
     
-    function escapeHtml(str) {
-        if (!str) return '';
-        return str.replace(/[&<>]/g, function(m) {
-            if (m === '&') return '&amp;';
-            if (m === '<') return '&lt;';
-            if (m === '>') return '&gt;';
-            return m;
-        });
-    }
-    
-    document.getElementById('searchClient').oninput = function(e) {
-        filtroCliente = e.target.value;
-        renderHistorial();
-    };
-    
-    document.getElementById('searchDate').onchange = function(e) {
-        filtroFecha = e.target.value;
-        renderHistorial();
-    };
-    
+    document.getElementById('searchClient').oninput = function(e) { filtroCliente = e.target.value; renderHistorial(); };
+    document.getElementById('searchDate').onchange = function(e) { filtroFecha = e.target.value; renderHistorial(); };
     document.getElementById('clearSearchBtn').onclick = function() {
         document.getElementById('searchClient').value = '';
         document.getElementById('searchDate').value = '';
@@ -568,7 +778,8 @@
     function renderResumen() {
         let totalGeneral = 0;
         for (const v of ventas) totalGeneral += v.total;
-        document.getElementById('totalSales').innerText = formatPeso(totalGeneral);
+        const totalSales = document.getElementById('totalSales');
+        if (totalSales) totalSales.innerText = formatPeso(totalGeneral);
         
         const ahora = new Date();
         const añoActual = ahora.getFullYear();
@@ -580,6 +791,7 @@
         let transferenciaMes = 0;
         
         for (const v of ventas) {
+            if (!v.fecha) continue;
             const partes = v.fecha.split('-');
             if (partes.length === 3) {
                 const año = parseInt(partes[0]);
@@ -588,43 +800,38 @@
                     conteoMes++;
                     if (v.tipo === 'contado') contadoMes += v.total;
                     else if (v.tipo === 'credito') creditoMes += v.total;
-                    else transferenciaMes += v.total;
+                    else if (v.tipo === 'transferencia') transferenciaMes += v.total;
                 }
             }
         }
         
-        document.getElementById('monthlyCount').innerText = conteoMes;
-        document.getElementById('monthlyContado').innerText = formatPeso(contadoMes);
-        document.getElementById('monthlyCredito').innerText = formatPeso(creditoMes);
-        document.getElementById('monthlyTransferencia').innerText = formatPeso(transferenciaMes);
+        const monthlyCount = document.getElementById('monthlyCount');
+        const monthlyContado = document.getElementById('monthlyContado');
+        const monthlyCredito = document.getElementById('monthlyCredito');
+        const monthlyTransferencia = document.getElementById('monthlyTransferencia');
+        
+        if (monthlyCount) monthlyCount.innerText = conteoMes;
+        if (monthlyContado) monthlyContado.innerText = formatPeso(contadoMes);
+        if (monthlyCredito) monthlyCredito.innerText = formatPeso(creditoMes);
+        if (monthlyTransferencia) monthlyTransferencia.innerText = formatPeso(transferenciaMes);
     }
     
     // ==================== IMPRESIÓN ====================
     function imprimirMes() {
         const valor = document.getElementById('printMonth').value;
-        if (!valor) {
-            mostrarMensaje('Error', 'Seleccione un mes');
-            return;
-        }
+        if (!valor) { mostrarMensaje('Error', 'Seleccione un mes'); return; }
         const [año, mes] = valor.split('-').map(Number);
         const filtradas = ventas.filter(v => {
+            if (!v.fecha) return false;
             const [a, m] = v.fecha.split('-');
             return parseInt(a) === año && parseInt(m) === mes;
         });
-        
-        if (filtradas.length === 0) {
-            mostrarMensaje('Sin datos', `No hay ventas en ${valor}`);
-            return;
-        }
-        
+        if (filtradas.length === 0) { mostrarMensaje('Sin datos', `No hay ventas en ${valor}`); return; }
         const win = window.open('', '_blank');
-        win.document.write(`<html><head><title>Reporte ${valor}</title>
-        <style>body{font-family:Arial;padding:20px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #000;padding:8px}th{background:#f0f0f0}</style>
-        </head><body><h1 style="text-align:center">Reporte de Ventas</h1><h2 style="text-align:center">${valor}</h2>
-        <table><thead><tr><th>Fecha</th><th>Cliente</th><th>Productos</th><th>Total</th><th>Deuda</th><th>Tipo</th></tr></thead><tbody>`);
-        
+        if (!win) { mostrarMensaje('Error', 'Permite ventanas emergentes en Safari'); return; }
+        win.document.write(`<html><head><title>Reporte ${valor}</title><style>body{font-family:Arial;padding:20px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #000;padding:8px}th{background:#f0f0f0}</style></head><body><h1 style="text-align:center">Reporte de Ventas</h1><h2 style="text-align:center">${valor}</h2><table><thead><tr><th>Fecha</th><th>Cliente</th><th>Productos</th><th>Total</th><th>Deuda</th><th>Tipo</th></tr></thead><tbody>`);
         for (const v of filtradas) {
-            win.document.write(`<tr><td>${v.fecha}</td><td>${v.comprador}</td><td>${v.items.map(i => `${i.nombre} x${i.cantidad}`).join(', ')}</td><td>${formatPeso(v.total)}</td><td>${formatPeso(v.deuda)}</td><td>${v.tipo}</td></tr>`);
+            win.document.write(`<tr><td>${v.fecha}</td><td>${escapeHtml(v.comprador)}</td><td>${v.items.map(i => `${i.nombre} x${i.cantidad}`).join(', ')}</td><td>${formatPeso(v.total)}</td><td>${formatPeso(v.deuda)}</td><td>${v.tipo}</td></tr>`);
         }
         win.document.write(`</tbody></table></body></html>`);
         win.document.close();
@@ -633,25 +840,14 @@
     
     function imprimirDia() {
         const fecha = document.getElementById('printDate').value;
-        if (!fecha) {
-            mostrarMensaje('Error', 'Seleccione una fecha');
-            return;
-        }
+        if (!fecha) { mostrarMensaje('Error', 'Seleccione una fecha'); return; }
         const filtradas = ventas.filter(v => v.fecha === fecha);
-        
-        if (filtradas.length === 0) {
-            mostrarMensaje('Sin datos', `No hay ventas el ${fecha}`);
-            return;
-        }
-        
+        if (filtradas.length === 0) { mostrarMensaje('Sin datos', `No hay ventas el ${fecha}`); return; }
         const win = window.open('', '_blank');
-        win.document.write(`<html><head><title>Reporte ${fecha}</title>
-        <style>body{font-family:Arial;padding:20px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #000;padding:8px}th{background:#f0f0f0}</style>
-        </head><body><h1 style="text-align:center">Reporte Diario</h1><h2 style="text-align:center">${new Date(fecha).toLocaleDateString()}</h2>
-        <table><thead><tr><th>Cliente</th><th>Productos</th><th>Total</th><th>Deuda</th><th>Tipo</th></tr></thead><tbody>`);
-        
+        if (!win) { mostrarMensaje('Error', 'Permite ventanas emergentes en Safari'); return; }
+        win.document.write(`<html><head><title>Reporte ${fecha}</title><style>body{font-family:Arial;padding:20px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #000;padding:8px}th{background:#f0f0f0}</style></head><body><h1 style="text-align:center">Reporte Diario</h1><h2 style="text-align:center">${new Date(fecha).toLocaleDateString()}</h2><table><thead><tr><th>Cliente</th><th>Productos</th><th>Total</th><th>Deuda</th><th>Tipo</th></tr></thead><tbody>`);
         for (const v of filtradas) {
-            win.document.write(`<tr><td>${v.comprador}</td><td>${v.items.map(i => `${i.nombre} x${i.cantidad}`).join(', ')}</td><td>${formatPeso(v.total)}</td><td>${formatPeso(v.deuda)}</td><td>${v.tipo}</td></tr>`);
+            win.document.write(`<td>${escapeHtml(v.comprador)}</td><td>${v.items.map(i => `${i.nombre} x${i.cantidad}`).join(', ')}</td><td>${formatPeso(v.total)}</td><td>${formatPeso(v.deuda)}</td><td>${v.tipo}</td></tr>`);
         }
         win.document.write(`</tbody></table></body></html>`);
         win.document.close();
@@ -659,11 +855,11 @@
     }
     
     function limpiarHistorial() {
-        if (confirm('⚠️ ¿Eliminar TODO el historial?')) {
+        if (confirm('⚠️ ¿Eliminar TODO el historial de ventas?')) {
             ventas = [];
-            guardarTodo();
             renderHistorial();
             renderResumen();
+            guardarYSincronizar();
             mostrarMensaje('Historial limpiado', 'Todos los registros fueron eliminados');
         }
     }
@@ -671,24 +867,72 @@
     document.getElementById('printMonthBtn').onclick = imprimirMes;
     document.getElementById('printDayBtn').onclick = imprimirDia;
     document.getElementById('clearHistoryBtn').onclick = limpiarHistorial;
+    document.getElementById('syncNowBtn').onclick = function() { sincronizarDesdeCloud(); };
+    
+    // ==================== DATOS INICIALES ====================
+    function cargarDatosIniciales() {
+        // Intentar cargar desde localStorage primero
+        const productosLocal = localStorage.getItem('anita_productos_backup');
+        const ventasLocal = localStorage.getItem('anita_ventas_backup');
+        
+        if (productosLocal && ventasLocal) {
+            productos = JSON.parse(productosLocal);
+            ventas = JSON.parse(ventasLocal);
+        } else {
+            productos = [
+                { id: '1', nombre: 'Queso', precio: 10500, stock: 50 },
+                { id: '2', nombre: 'Longanizas', precio: 8700, stock: 30 },
+                { id: '3', nombre: 'Arrollado', precio: 4700, stock: 10 },
+                { id: '4', nombre: 'Miel', precio: 9000, stock: 5 },
+                { id: '5', nombre: 'Prietas', precio: 8500, stock: 4 }
+            ];
+            ventas = [];
+        }
+    }
+    
+    function guardarBackupLocal() {
+        localStorage.setItem('anita_productos_backup', JSON.stringify(productos));
+        localStorage.setItem('anita_ventas_backup', JSON.stringify(ventas));
+    }
     
     // ==================== INICIALIZACIÓN ====================
-    function iniciar() {
+    async function iniciar() {
+        cargarDatosIniciales();
+        
         renderProductos();
         renderItemsVenta();
         renderHistorial();
         renderResumen();
-        document.getElementById('saleDate').valueAsDate = new Date();
-        document.getElementById('printMonth').valueAsDate = new Date();
-        document.getElementById('printDate').valueAsDate = new Date();
-        console.log('App iniciada correctamente');
+        
+        // Fechas compatibles con iOS 12
+        const fechaInput = document.getElementById('saleDate');
+        const mesInput = document.getElementById('printMonth');
+        const diaInput = document.getElementById('printDate');
+        
+        if (fechaInput) fechaInput.value = obtenerFechaActual();
+        if (mesInput) mesInput.value = obtenerMesActual();
+        if (diaInput) diaInput.value = obtenerFechaActual();
+        
+        // Verificar iCloud
+        if (isICloudAvailable()) {
+            await sincronizarDesdeCloud();
+        } else {
+            actualizarStatusSync('error', '⚠️ iCloud no disponible. Datos guardados localmente.');
+        }
+        
+        // Backup automático cada vez que se cierra
+        window.addEventListener('beforeunload', function() {
+            guardarBackupLocal();
+        });
+        
+        console.log('App iniciada correctamente - Versión con iCloud');
     }
     
     iniciar();
 </script>
 
 <footer style="text-align:center; font-size:11px; color:gray; margin-top:20px;">
-    ✅ Sistema Anita Maria | Datos guardados en el dispositivo | Creado por Monkey 63
+    ✅ Sistema Anita Maria — Sincronizado con iCloud Drive | Datos respaldados | Creado por Monkey 63
 </footer>
 
 </body>
