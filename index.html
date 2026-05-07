@@ -1,767 +1,582 @@
 <!DOCTYPE html>
-
 <html lang="es">
 <head>
-<meta charset="utf-8"/>
-<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
-<title>Anita Maria - Gestión de Ventas</title>
-<!-- Incluye Tailwind CSS para un diseño moderno y responsivo -->
-<script src="https://cdn.tailwindcss.com"></script>
-<style>
-        body { font-family: 'Inter', sans-serif; }
-        /* Estilos para el modal de confirmación y mensajes */
-        .modal-overlay {
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="Anita Ventas">
+    <title>Anita Maria - Ventas</title>
+    <style>
+        body {
+            font-family: -apple-system, Helvetica, Arial, sans-serif;
+            background: #e5e7eb;
+            margin: 0;
+            padding: 15px;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        /* Tarjetas */
+        .card {
+            background: white;
+            border-radius: 16px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .card-purple {
+            background: linear-gradient(135deg, #6366f1, #8b5cf6);
+            color: white;
+        }
+        /* Grid simple con float */
+        .row {
+            margin: 0 -10px;
+            overflow: hidden;
+        }
+        .col {
+            float: left;
+            padding: 0 10px;
+            box-sizing: border-box;
+        }
+        .col-1-3 { width: 33.333%; }
+        .col-2-3 { width: 66.666%; }
+        @media (max-width: 768px) {
+            .col-1-3, .col-2-3 { width: 100%; float: none; }
+        }
+        /* Botones */
+        button {
+            background: #4f46e5;
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover { opacity: 0.9; }
+        .btn-success { background: #10b981; }
+        .btn-danger { background: #ef4444; }
+        .btn-secondary { background: #e5e7eb; color: #1f2937; }
+        .btn-sm { padding: 6px 12px; font-size: 14px; }
+        .btn-full { width: 100%; margin: 10px 0; }
+        /* Formularios */
+        input, select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #d1d5db;
+            border-radius: 10px;
+            font-size: 14px;
+            margin: 8px 0 16px 0;
+            box-sizing: border-box;
+        }
+        label {
+            font-weight: 600;
+            font-size: 14px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+        }
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        th {
+            background: #f9fafb;
+        }
+        .sale-item {
+            background: #f3f4f6;
+            padding: 15px;
+            border-radius: 12px;
+            margin-bottom: 10px;
+        }
+        .sale-item select, .sale-item input {
+            width: auto;
+            display: inline-block;
+            margin: 5px;
+        }
+        .flex-between {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        .text-center { text-align: center; }
+        .text-red { color: #ef4444; }
+        .text-green { color: #10b981; }
+        .mt-2 { margin-top: 8px; }
+        .mt-4 { margin-top: 16px; }
+        .mb-2 { margin-bottom: 8px; }
+        .font-bold { font-weight: bold; }
+        .text-lg { font-size: 28px; font-weight: bold; }
+        .modal {
+            display: none;
             position: fixed;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
-            background-color: rgba(0, 0, 0, 0.5);
-            display: flex;
-            justify-content: center;
-            align-items: center;
+            background: rgba(0,0,0,0.5);
             z-index: 1000;
         }
         .modal-content {
-            background-color: white;
-            padding: 2rem;
-            border-radius: 1rem;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-            max-width: 400px;
+            background: white;
+            margin: 100px auto;
+            padding: 20px;
+            width: 90%;
+            max-width: 350px;
+            border-radius: 16px;
             text-align: center;
         }
-        /* Estilos para la impresión */
+        .edit-input {
+            width: 100%;
+            padding: 6px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            box-sizing: border-box;
+        }
         @media print {
-            body > *:not(.print-container) {
-                display: none !important;
-            }
-            .print-container {
-                display: block !important;
-                margin: 0;
-                padding: 0;
-                width: 100%;
-                color: #000;
-            }
-            .print-container h1, .print-container h2 {
-                color: #000;
-            }
-            .print-container .table-print-view th, .print-container .table-print-view td {
-                border: 1px solid #ddd;
-                padding: 8px;
-            }
-            .print-container .table-print-view {
-                width: 100%;
-                border-collapse: collapse;
-            }
+            body > *:not(.print-container) { display: none !important; }
+            .print-container { display: block !important; padding: 20px; }
         }
     </style>
 </head>
-<body class="bg-gray-100 p-4 sm:p-8">
-<div class="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-6" id="app">
-<!-- Panel de Resumen -->
-<div class="lg:col-span-1 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl text-white shadow-lg p-6 sm:p-8 flex flex-col justify-between">
-<div>
-<h1 class="text-3xl sm:text-4xl font-extrabold mb-2">Anita Maria</h1>
-<p class="text-indigo-100 text-lg mb-6">Gestión de Ventas</p>
-<div class="space-y-4">
-<div class="flex items-center space-x-4">
-<div class="bg-white/20 rounded-full p-3 backdrop-blur-sm">
-<svg class="h-6 w-6 text-white" fill="none" stroke="currentColor" viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-<path d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.592 1L21 12h-4m-9 0H3l.408-1.006A6 6 0 0112 4s.484 2 2 2h3s-1.16-1.579-2.592-1c-.512-.598-1.482-1-2.592-1z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
-</svg>
-</div>
-<div>
-<p class="text-indigo-100 text-sm">Ventas Totales</p>
-<p class="text-2xl font-bold" id="total-sales-amount">$0.00</p>
-</div>
-</div>
-<div class="flex items-center space-x-4">
-<div class="bg-white/20 rounded-full p-3 backdrop-blur-sm">
-<svg class="h-6 w-6 text-white" fill="none" stroke="currentColor" viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-<path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
-</svg>
-</div>
-<div>
-<p class="text-indigo-100 text-sm">Ventas este mes</p>
-<p class="text-2xl font-bold" id="monthly-sales-count">0</p>
-</div>
-</div>
-</div>
-<!-- Desglose por tipo de venta -->
-<div class="mt-8 pt-4 border-t border-indigo-400">
-<p class="text-indigo-100 text-sm mb-2">Desglose por tipo de venta (este mes):</p>
-<div class="flex justify-between items-center text-sm font-medium mb-1">
-<span>Contado:</span>
-<span id="monthly-contado-amount">$0.00</span>
-</div>
-<div class="flex justify-between items-center text-sm font-medium mb-1">
-<span>Crédito:</span>
-<span id="monthly-credito-amount">$0.00</span>
-</div>
-<div class="flex justify-between items-center text-sm font-medium">
-<span>Transferencia:</span>
-<span id="monthly-transferencia-amount">$0.00</span>
-</div>
-</div>
-</div>
-</div>
-<!-- Formulario de Nueva Venta -->
-<div class="lg:col-span-2 bg-white rounded-2xl shadow-lg p-6 sm:p-8">
-<h2 class="text-2xl sm:text-3xl font-bold text-gray-900 mb-6">Nueva Venta</h2>
-<form class="space-y-6" id="new-sale-form">
-<div>
-<label class="block text-sm font-medium text-gray-700" for="buyer-name">Nombre del Comprador</label>
-<input class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 transition duration-150" id="buyer-name" type="text"/>
-</div>
-<div>
-<label class="block text-sm font-medium text-gray-700" for="sale-date">Fecha de Venta</label>
-<input class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 transition duration-150" id="sale-date" required="" type="date"/>
-</div>
-<div class="space-y-4" id="sale-items-container">
-<h3 class="text-xl font-semibold text-gray-800">Items de la Venta</h3>
-<!-- Los items se añadirán aquí dinámicamente -->
-</div>
-<button class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-indigo-700 bg-indigo-100 hover:bg-indigo-200 transition duration-150" id="add-item-btn" type="button">
-                    Añadir Item
-                </button>
+<body>
 
-<!-- Nuevo campo para el tipo de venta -->
-<div class="pt-4">
-<label class="block text-sm font-medium text-gray-700" for="payment-type">Tipo de Venta</label>
-<select class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 transition duration-150" id="payment-type">
-<option value="contado">Contado</option>
-<option value="credito">Crédito</option>
-<option value="transferencia">Transferencia Inmediata</option>
-</select>
-</div><div class="pt-4">
-<div class="flex justify-between items-baseline mb-2">
-<label class="block text-sm font-medium text-gray-700">Total de Venta</label>
-<span class="text-xl font-bold text-indigo-600" id="total-venta-display">
-                            $0.00
-                        </span>
-</div>
-<label class="block text-sm font-medium text-gray-700" for="amount-paid">Monto Pagado</label>
-<input class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 transition duration-150" id="amount-paid" min="0" required="" step="0.01" type="number"/>
-</div>
-<div class="text-red-500 text-sm hidden" id="validation-message">
-                    Por favor, asegúrese de que el monto pagado no sea mayor que el total de la venta.
+<div class="container">
+    <!-- Primera fila: Resumen y Nueva Venta -->
+    <div class="row">
+        <div class="col col-1-3">
+            <div class="card card-purple">
+                <h1 style="margin:0 0 5px 0;">Anita Maria</h1>
+                <p style="opacity:0.9; margin-bottom:20px;">Gestión de Ventas</p>
+                <div><strong>💰 Ventas Totales</strong><br><span id="totalSales" style="font-size:28px; font-weight:bold;">$0</span></div>
+                <div class="mt-2"><strong>📆 Ventas este mes</strong><br><span id="monthlyCount" style="font-size:28px; font-weight:bold;">0</span></div>
+                <div class="mt-4" style="border-top:1px solid rgba(255,255,255,0.3); padding-top:12px;">
+                    <strong>📊 Desglose este mes:</strong><br>
+                    Contado: <span id="monthlyContado">$0</span><br>
+                    Crédito: <span id="monthlyCredito">$0</span><br>
+                    Transferencia: <span id="monthlyTransferencia">$0</span>
                 </div>
-<button class="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-lg font-bold text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition duration-150" id="save-sale-btn" type="submit">
-                    Registrar Venta
-                </button>
-</form>
+            </div>
+        </div>
+        <div class="col col-2-3">
+            <div class="card">
+                <h2 style="margin-top:0;">🛒 Nueva Venta</h2>
+                <label>👤 Nombre del Comprador *</label>
+                <input type="text" id="buyerName" placeholder="Ej: María González">
+                
+                <label>📅 Fecha</label>
+                <input type="date" id="saleDate">
+                
+                <div id="itemsContainer"></div>
+                <button id="addItemBtn" class="btn-full" style="background:#e5e7eb; color:#1f2937;">+ Añadir Producto</button>
+                
+                <label>💳 Tipo de Venta</label>
+                <select id="paymentType">
+                    <option value="contado">Contado</option>
+                    <option value="credito">Crédito</option>
+                    <option value="transferencia">Transferencia</option>
+                </select>
+                
+                <div style="background:#f3f4f6; padding:15px; border-radius:12px; margin:15px 0;">
+                    <div class="flex-between"><strong>💰 Total Venta:</strong> <span id="totalDisplay" style="font-size:24px; font-weight:bold; color:#4f46e5;">$0</span></div>
+                    <label>💵 Monto Pagado</label>
+                    <input type="number" id="amountPaid" step="0.01" value="0">
+                    <p style="font-size:12px; color:gray;">* En ventas a crédito, el monto pagado se fija en $0</p>
+                </div>
+                
+                <div id="errorMsg" class="text-red" style="display:none;">⚠️ El monto pagado no puede ser mayor al total</div>
+                <button id="registerBtn" class="btn-full">✅ Registrar Venta</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Productos -->
+    <div class="card">
+        <div class="flex-between">
+            <h2>📦 Productos</h2>
+            <button id="newProductBtn" class="btn-success">+ Nuevo Producto</button>
+        </div>
+        <div style="overflow-x:auto;">
+            <table id="productsTable">
+                <thead><tr><th>Nombre</th><th>Precio</th><th>Stock</th><th>Acciones</th></tr></thead>
+                <tbody></tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Historial -->
+    <div class="card">
+        <div class="flex-between">
+            <h2>📜 Historial de Ventas</h2>
+            <div style="display:flex; flex-wrap:wrap; gap:8px;">
+                <input type="month" id="printMonth" style="width:120px;">
+                <input type="date" id="printDate" style="width:120px;">
+                <button id="printMonthBtn" class="btn-sm">📅 Imprimir Mes</button>
+                <button id="printDayBtn" class="btn-sm btn-success">📆 Imprimir Día</button>
+                <button id="clearHistoryBtn" class="btn-sm btn-danger">🗑️ Limpiar Todo</button>
+            </div>
+        </div>
+        
+        <div style="background:#f3f4f6; padding:15px; border-radius:12px; margin:15px 0; display:flex; gap:10px; flex-wrap:wrap;">
+            <input type="text" id="searchClient" placeholder="🔍 Buscar cliente..." style="flex:1;">
+            <input type="date" id="searchDate" style="width:130px;">
+            <button id="clearSearchBtn" class="btn-secondary btn-sm">Limpiar</button>
+        </div>
+        
+        <div id="historyContainer" style="overflow-x:auto;"></div>
+    </div>
 </div>
-<!-- Tabla de Historial de Ventas -->
-<div class="lg:col-span-2 bg-white rounded-2xl shadow-lg p-6 sm:p-8 overflow-x-auto">
-<div class="flex flex-col sm:flex-row justify-between items-center mb-4 sm:mb-6">
-<h2 class="text-2xl sm:text-3xl font-bold text-gray-900 mb-4 sm:mb-0">Historial de Ventas</h2>
-<div class="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2 w-full sm:w-auto">
-<!-- Selector de Mes y Año para imprimir -->
-<input class="w-full sm:w-auto rounded-md border-gray-300 shadow-sm text-gray-700 focus:border-indigo-500 focus:ring-indigo-500 transition duration-150" id="print-month-year" type="month"/><input class="w-full sm:w-auto rounded-md border-gray-300 shadow-sm text-gray-700 focus:border-indigo-500 focus:ring-indigo-500 transition duration-150" id="print-daily-date" type="date"/>
-<!-- Botón para Imprimir Reporte -->
-<button class="w-full sm:w-auto flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition duration-150" id="print-report-btn">
-                        Imprimir Reporte
-                    </button><button class="w-full sm:w-auto flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition duration-150" id="print-daily-report-btn">Imprimir Diario</button>
-<!-- Botón para Limpiar Historial -->
-<button class="w-full sm:w-auto flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition duration-150" id="clear-sales-btn">
-                        Limpiar Historial
-                    </button>
+
+<!-- Modales -->
+<div id="messageModal" class="modal">
+    <div class="modal-content">
+        <h3 id="msgTitle">Mensaje</h3>
+        <p id="msgText"></p>
+        <button id="closeMsgBtn">Cerrar</button>
+    </div>
 </div>
+<div id="productModal" class="modal">
+    <div class="modal-content">
+        <h3>Nuevo Producto</h3>
+        <input type="text" id="newProdName" placeholder="Nombre">
+        <input type="number" id="newProdPrice" placeholder="Precio">
+        <input type="number" id="newProdStock" placeholder="Stock">
+        <button id="saveProductBtn">Guardar</button>
+        <button id="cancelProductBtn" class="btn-secondary">Cancelar</button>
+    </div>
 </div>
-<div id="sales-history-container"></div>
-</div>
-<!-- Tabla de Productos -->
-<div class="lg:col-span-1 bg-white rounded-2xl shadow-lg p-6 sm:p-8">
-<h2 class="text-2xl sm:text-3xl font-bold text-gray-900 mb-4">Productos</h2>
-<div class="overflow-x-auto">
-<table class="min-w-full divide-y divide-gray-200">
-<thead class="bg-gray-50">
-<tr>
-<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" scope="col">Nombre</th>
-<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" scope="col">Precio</th>
-<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" scope="col">Stock</th>
-</tr>
-</thead>
-<tbody class="bg-white divide-y divide-gray-200" id="product-list">
-<!-- Los productos se añadirán aquí dinámicamente -->
-</tbody>
-</table>
-</div>
-</div>
-</div>
-<!-- Modal de confirmación para limpiar historial -->
-<div class="modal-overlay hidden" id="clear-modal">
-<div class="modal-content">
-<h3 class="text-xl font-bold mb-4">Confirmar Limpieza de Historial</h3>
-<p class="text-gray-700 mb-6">¿Estás seguro de que quieres borrar permanentemente todo el historial de ventas? Esta acción no se puede deshacer.</p>
-<div class="flex justify-center space-x-4">
-<button class="py-2 px-4 rounded-full text-gray-700 border border-gray-300 hover:bg-gray-100 transition duration-150" id="clear-modal-cancel">Cancelar</button>
-<button class="py-2 px-4 rounded-full text-white bg-red-600 hover:bg-red-700 transition duration-150" id="clear-modal-confirm">Confirmar</button>
-</div>
-</div>
-</div>
-<!-- Modal para mensajes de error o información -->
-<div class="modal-overlay hidden" id="message-modal">
-<div class="modal-content">
-<h3 class="text-xl font-bold mb-4" id="message-modal-title">Mensaje</h3>
-<p class="text-gray-700 mb-6" id="message-modal-text"></p>
-<button class="py-2 px-4 rounded-full text-white bg-indigo-600 hover:bg-indigo-700 transition duration-150" id="message-modal-close">Cerrar</button>
-</div>
-</div>
-<!-- Contenedor para la impresión (oculto por defecto) -->
-<div class="print-container hidden"></div>
+<div class="print-container" style="display:none;"></div>
+
 <script>
-        // Funciones auxiliares
-        function generateUUID() {
-            return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-                var r = Math.random() * 16 | 0, v = c === 'x' ? r : (r & 0x3 | 0x8);
-                return v.toString(16);
-            });
-        }
-        
-        function formatCurrency(amount) {
-            return new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP' }).format(amount);
-        }
-
-        // Estado global de la aplicación
-        let state = {
-            products: JSON.parse(localStorage.getItem('products')) || [
-                { name: 'Queso', price: 10500, stock: 50 },
-                { name: 'Longanizas', price: 8700, stock: 30 },
-                { name: 'Arrollado', price: 4700, stock: 10 },
-                { name: 'Queso Especies', price: 7000, stock: 5 },
-                { name: 'Prietas', price: 8500, stock: 4 }
-            ],
-            sales: JSON.parse(localStorage.getItem('sales')) || [],
-            newSale: {
-                buyerName: '',
-                date: new Date().toISOString().split('T')[0],
-                items: [],
-                amountPaid: 0,
-                paymentType: 'contado'
-            },
-        };
-
-        // Guarda el estado en localStorage
-        function saveState() {
-            localStorage.setItem('products', JSON.stringify(state.products));
-            localStorage.setItem('sales', JSON.stringify(state.sales));
-        }
-        
-        // Muestra un modal de mensaje con un título y texto
-        function showMessageModal(title, text) {
-            const modalEl = document.getElementById('message-modal');
-            document.getElementById('message-modal-title').textContent = title;
-            document.getElementById('message-modal-text').textContent = text;
-            modalEl.classList.remove('hidden');
-        }
-
-        // Oculta el modal de mensaje
-        function hideMessageModal() {
-            const modalEl = document.getElementById('message-modal');
-            modalEl.classList.add('hidden');
-        }
-
-        // Resetea el formulario de nueva venta, tanto el estado como la UI
-        function resetNewSaleForm() {
-            state.newSale = {
-                buyerName: '',
-                date: new Date().toISOString().split('T')[0],
-                items: [],
-                amountPaid: 0,
-                paymentType: 'contado'
-            };
-            document.getElementById('buyer-name').value = '';
-            document.getElementById('sale-date').value = state.newSale.date;
-            document.getElementById('amount-paid').value = 0;
-            document.getElementById('payment-type').value = 'contado';
-            
-            // Llama a renderNewSaleForm para actualizar los ítems y el total
-            renderNewSaleForm();
-
-            // Enfoca el campo del comprador, listo para la siguiente venta
-            document.getElementById('buyer-name').focus();
-        }
-
-        // Renderiza la aplicación completa
-        function renderApp() {
-            renderSummary();
-            renderProductList();
-            renderNewSaleForm();
-            renderSalesHistory();
-            saveState();
-        }
-
-        // Renderiza el panel de resumen
-        function renderSummary() {
-            const totalSalesAmountEl = document.getElementById('total-sales-amount');
-            const monthlySalesCountEl = document.getElementById('monthly-sales-count');
-            
-            const monthlyContadoAmountEl = document.getElementById('monthly-contado-amount');
-            const monthlyCreditoAmountEl = document.getElementById('monthly-credito-amount');
-            const monthlyTransferenciaAmountEl = document.getElementById('monthly-transferencia-amount');
-            
-            const totalAmount = state.sales.reduce((acc, sale) => acc + sale.totalAmount, 0);
-            totalSalesAmountEl.textContent = formatCurrency(totalAmount);
-
-            const currentMonth = new Date().getMonth();
-            const currentYear = new Date().getFullYear();
-            const monthlySales = state.sales.filter(sale => {
-                const saleDate = new Date(sale.date);
-                return saleDate.getMonth() === currentMonth && saleDate.getFullYear() === currentYear;
-            });
-            monthlySalesCountEl.textContent = monthlySales.length;
-
-            const monthlyTotals = monthlySales.reduce((acc, sale) => {
-                acc[sale.paymentType] = (acc[sale.paymentType] || 0) + sale.totalAmount;
-                return acc;
-            }, {});
-
-            monthlyContadoAmountEl.textContent = formatCurrency(monthlyTotals['contado'] || 0);
-            monthlyCreditoAmountEl.textContent = formatCurrency(monthlyTotals['credito'] || 0);
-            monthlyTransferenciaAmountEl.textContent = formatCurrency(monthlyTotals['transferencia'] || 0);
-        }
-
-        // Renderiza la lista de productos
-        function renderProductList() {
-            const productListEl = document.getElementById('product-list');
-            productListEl.innerHTML = '';
-            state.products.forEach(product => {
-                const row = document.createElement('tr');
-                row.innerHTML = `
-                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${product.name}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${formatCurrency(product.price)}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${product.stock}</td>
-                `;
-                productListEl.appendChild(row);
-            });
-        }
-
-        // Renderiza el formulario de nueva venta
-        function renderNewSaleForm() {
-            const saleItemsContainer = document.getElementById('sale-items-container');
-            const totalVentaDisplayEl = document.getElementById('total-venta-display');
-            
-            // Limpiamos los ítems anteriores
-            saleItemsContainer.innerHTML = `
-                <h3 class="text-xl font-semibold text-gray-800">Items de la Venta</h3>
+    // ==================== DATOS ====================
+    let productos = [];
+    let ventas = [];
+    let itemsVenta = [];
+    
+    const formatPeso = (n) => '$' + ((typeof n === 'number' && !isNaN(n)) ? n : 0).toLocaleString('es-CL');
+    
+    const mostrarMsj = (titulo, texto) => {
+        document.getElementById('msgTitle').innerText = titulo;
+        document.getElementById('msgText').innerText = texto;
+        document.getElementById('messageModal').style.display = 'block';
+    };
+    
+    const ocultarModal = (id) => document.getElementById(id).style.display = 'none';
+    
+    function guardarTodo() {
+        localStorage.setItem('productos', JSON.stringify(productos));
+        localStorage.setItem('ventas', JSON.stringify(ventas));
+    }
+    
+    function cargarDatos() {
+        const p = localStorage.getItem('productos');
+        if (p) productos = JSON.parse(p);
+        else productos = [
+            { id: '1', nombre: 'Queso', precio: 10500, stock: 50, stockOriginal: 50 },
+            { id: '2', nombre: 'Longanizas', precio: 8700, stock: 30, stockOriginal: 30 },
+            { id: '3', nombre: 'Arrollado', precio: 4700, stock: 10, stockOriginal: 10 },
+            { id: '4', nombre: 'Miel', precio: 9000, stock: 5, stockOriginal: 5 },
+            { id: '5', nombre: 'Prietas', precio: 8500, stock: 4, stockOriginal: 4 }
+        ];
+        const v = localStorage.getItem('ventas');
+        ventas = v ? JSON.parse(v) : [];
+    }
+    
+    function renderProductos() {
+        const tbody = document.querySelector('#productsTable tbody');
+        tbody.innerHTML = '';
+        productos.forEach(p => {
+            const row = tbody.insertRow();
+            row.innerHTML = `
+                <td><input type="text" id="nombre_${p.id}" value="${p.nombre.replace(/"/g, '&quot;')}" class="edit-input"></td>
+                <td><input type="number" id="precio_${p.id}" value="${p.precio}" class="edit-input" style="width:100px;"></td>
+                <td><input type="number" id="stock_${p.id}" value="${p.stock}" class="edit-input" style="width:80px;"></td>
+                <td><button onclick="editarProducto('${p.id}')" style="background:#4f46e5;">Guardar</button> <button onclick="eliminarProducto('${p.id}')" style="background:#ef4444;">Borrar</button></td>
             `;
-            
-            // Itera sobre los items de la venta y crea los select e inputs
-            state.newSale.items.forEach((item, index) => {
-                const itemDiv = document.createElement('div');
-                itemDiv.className = 'flex items-center space-x-4';
-                itemDiv.innerHTML = `
-                    <div class="flex-1">
-                        <label class="block text-sm font-medium text-gray-700">Item ${index + 1}</label>
-                        <select data-index="${index}" class="item-name mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 transition duration-150">
-                            <option value="">Seleccione un producto</option>
-                            ${state.products.map(p => `<option value="${p.name}" ${p.name === item.name ? 'selected' : ''}>${p.name}</option>`).join('')}
-                        </select>
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700">Cantidad</label>
-                        <input type="number" data-index="${index}" min="1" class="item-quantity mt-1 block w-24 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 transition duration-150" value="${item.quantity}" required>
-                    </div>
-                    <button type="button" data-index="${index}" class="remove-item-btn mt-4 text-red-500 hover:text-red-700 transition duration-150">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                        </svg>
-                    </button>
-                `;
-                saleItemsContainer.appendChild(itemDiv);
-            });
-            
-            // Calculamos el total de la venta en tiempo real y lo mostramos
-            const totalAmount = state.newSale.items.reduce((acc, item) => acc + (item.price * item.quantity), 0);
-            totalVentaDisplayEl.textContent = formatCurrency(totalAmount);
-        }
-
-        // Renderiza el historial de ventas
-        function renderSalesHistory() {
-            const salesHistoryContainerEl = document.getElementById('sales-history-container');
-            salesHistoryContainerEl.innerHTML = '';
-            
-            if (state.sales.length === 0) {
-                salesHistoryContainerEl.innerHTML = '<p class="text-center text-gray-500">No hay ventas registradas aún.</p>';
-                return;
-            }
-
-            const table = document.createElement('table');
-            table.className = 'min-w-full divide-y divide-gray-200';
-            table.innerHTML = `
-                <thead class="bg-gray-50">
-                    <tr>
-                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fecha</th>
-                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Comprador</th>
-                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Productos</th>
-                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
-                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Deuda</th>
-                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tipo de Venta</th>
-                    </tr>
-                </thead>
-                <tbody class="bg-white divide-y divide-gray-200">
-                </tbody>
-            `;
-            const tbody = table.querySelector('tbody');
-
-            state.sales.forEach(sale => {
-                const row = document.createElement('tr');
-                const productsList = sale.items.map(item => `${item.name} (${item.quantity})`).join(', ');
-                const debtClass = sale.amountOwed > 0 ? 'text-red-600 font-semibold' : 'text-green-600';
-                const paymentTypeMap = {
-                    'contado': 'Contado',
-                    'credito': 'Crédito',
-                    'transferencia': 'Transferencia'
-                };
-                row.innerHTML = `
-                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${new Date(sale.date).toLocaleDateString()}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${sale.buyerName}</td>
-                    <td class="px-6 py-4 text-sm text-gray-500">${productsList}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${formatCurrency(sale.totalAmount)}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm ${debtClass}">${formatCurrency(sale.amountOwed)}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${paymentTypeMap[sale.paymentType] || sale.paymentType}</td>
-                `;
-                tbody.appendChild(row);
-            });
-            salesHistoryContainerEl.appendChild(table);
-        }
-
-        // Funciones para imprimir
-        function printReport(month, year) {
-            const printContainer = document.querySelector('.print-container');
-            printContainer.innerHTML = '';
-            
-            const monthlySales = state.sales.filter(sale => {
-                const saleDate = new Date(sale.date);
-                return saleDate.getMonth() === month && saleDate.getFullYear() === year;
-            });
-            
-            if (monthlySales.length === 0) {
-                showMessageModal('Error de Impresión', 'No hay ventas para el mes seleccionado.');
-                return;
-            }
-
-            const header = document.createElement('div');
-            header.className = 'p-8 text-center';
-            header.innerHTML = `
-                <h1 class="text-4xl font-bold mb-2">Reporte de Ventas</h1>
-                <h2 class="text-xl text-gray-600 mb-6">Mes: ${new Date(year, month).toLocaleString('es-CL', { month: 'long', year: 'numeric' })}</h2>
-            `;
-            printContainer.appendChild(header);
-
-            const table = document.createElement('table');
-            table.className = 'table-print-view text-left text-sm';
-            table.innerHTML = `
-                <thead class="bg-gray-200">
-                    <tr>
-                        <th class="px-6 py-3">Fecha</th>
-                        <th class="px-6 py-3">Comprador</th>
-                        <th class="px-6 py-3">Productos</th>
-                        <th class="px-6 py-3">Total</th>
-                        <th class="px-6 py-3">Deuda</th>
-                        <th class="px-6 py-3">Tipo de Venta</th>
-                    </tr>
-                </thead>
-                <tbody>
-                </tbody>
-            `;
-            const tbody = table.querySelector('tbody');
-            
-            let monthlyTotal = 0;
-            let monthlyDebt = 0;
-
-            monthlySales.forEach(sale => {
-                monthlyTotal += sale.totalAmount;
-                monthlyDebt += sale.amountOwed;
-                const productsList = sale.items.map(item => `${item.name} (${item.quantity})`).join(', ');
-                const paymentTypeMap = {
-                    'contado': 'Contado',
-                    'credito': 'Crédito',
-                    'transferencia': 'Transferencia'
-                };
-                const row = document.createElement('tr');
-                row.innerHTML = `
-                    <td class="px-6 py-4">${new Date(sale.date).toLocaleDateString()}</td>
-                    <td class="px-6 py-4">${sale.buyerName}</td>
-                    <td class="px-6 py-4">${productsList}</td>
-                    <td class="px-6 py-4">${formatCurrency(sale.totalAmount)}</td>
-                    <td class="px-6 py-4">${formatCurrency(sale.amountOwed)}</td>
-                    <td class="px-6 py-4">${paymentTypeMap[sale.paymentType] || sale.paymentType}</td>
-                `;
-                tbody.appendChild(row);
-            });
-            
-            const summaryRow = document.createElement('tr');
-            summaryRow.className = 'font-bold';
-            summaryRow.innerHTML = `
-                <td colspan="3" class="px-6 py-4 text-right">Totales del mes:</td>
-                <td class="px-6 py-4">${formatCurrency(monthlyTotal)}</td>
-                <td class="px-6 py-4">${formatCurrency(monthlyDebt)}</td>
-                <td class="px-6 py-4"></td>
-            `;
-            tbody.appendChild(summaryRow);
-
-            printContainer.appendChild(table);
-
-            window.print();
-        }
-        
-        // Modal de confirmación para limpiar historial
-        const clearModalEl = document.getElementById('clear-modal');
-        const clearModalConfirmEl = document.getElementById('clear-modal-confirm');
-        const clearModalCancelEl = document.getElementById('clear-modal-cancel');
-        function showClearModal() { clearModalEl.classList.remove('hidden'); }
-        function hideClearModal() { clearModalEl.classList.add('hidden'); }
-        
-        // Inicializa la aplicación cuando el DOM esté cargado
-        document.addEventListener('DOMContentLoaded', () => {
-            renderApp();
-
-            // Event listener para el formulario de nueva venta
-            document.getElementById('new-sale-form').addEventListener('submit', (e) => {
-                e.preventDefault();
-                
-                const buyerNameEl = document.getElementById('buyer-name');
-                const saleDateEl = document.getElementById('sale-date');
-                const amountPaidEl = document.getElementById('amount-paid');
-                const paymentTypeEl = document.getElementById('payment-type');
-                const validationMessageEl = document.getElementById('validation-message');
-
-                // Validación manual para el nombre del comprador y productos
-                if (!buyerNameEl.value.trim()) {
-                    showMessageModal('Error', 'Por favor, ingrese el nombre del comprador.');
-                    return;
-                }
-                if (state.newSale.items.length === 0) {
-                    showMessageModal('Error', 'Por favor, añada al menos un producto a la venta.');
-                    return;
-                }
-                
-                state.newSale.buyerName = buyerNameEl.value.trim();
-                state.newSale.date = saleDateEl.value;
-                state.newSale.amountPaid = parseFloat(amountPaidEl.value);
-                state.newSale.paymentType = paymentTypeEl.value;
-                
-                const totalAmount = state.newSale.items.reduce((acc, item) => acc + (item.price * item.quantity), 0);
-                
-                if (state.newSale.amountPaid > totalAmount) {
-                    validationMessageEl.classList.remove('hidden');
-                    return;
-                }
-
-                validationMessageEl.classList.add('hidden');
-
-                const amountOwed = totalAmount - state.newSale.amountPaid;
-                const newSaleItem = {
-                    id: generateUUID(),
-                    ...state.newSale,
-                    totalAmount,
-                    amountOwed,
-                    date: new Date(state.newSale.date),
-                };
-
-                const updatedProducts = state.products.map(product => {
-                    const soldItem = state.newSale.items.find(item => item.name === product.name);
-                    if (soldItem) {
-                        return { ...product, stock: product.stock - soldItem.quantity };
-                    }
-                    return product;
-                });
-                state.products = updatedProducts;
-                state.sales.push(newSaleItem);
-                
-                // Reseteamos el formulario y la UI después de una venta exitosa
-                resetNewSaleForm();
-                
-                renderApp();
-            });
-
-            // Event listener para el botón "Añadir Item"
-            document.getElementById('add-item-btn').addEventListener('click', () => {
-                state.newSale.items.push({
-                    name: '',
-                    price: 0,
-                    quantity: 1
-                });
-                renderNewSaleForm();
-            });
-
-            // Event listeners para los items de la venta
-            document.getElementById('sale-items-container').addEventListener('change', (e) => {
-                const target = e.target;
-                if (target.classList.contains('item-name')) {
-                    const index = target.dataset.index;
-                    const productName = target.value;
-                    const product = state.products.find(p => p.name === productName);
-                    if (product) {
-                        state.newSale.items[index].name = product.name;
-                        state.newSale.items[index].price = product.price;
-                    } else {
-                        state.newSale.items[index].name = '';
-                        state.newSale.items[index].price = 0;
-                    }
-                }
-                if (target.classList.contains('item-quantity')) {
-                    const index = target.dataset.index;
-                    state.newSale.items[index].quantity = parseInt(target.value) || 0; // Aseguramos que sea un número
-                }
-                // Vuelve a renderizar el formulario para actualizar el total
-                renderNewSaleForm();
-            });
-
-            document.getElementById('sale-items-container').addEventListener('click', (e) => {
-                if (e.target.closest('.remove-item-btn')) {
-                    const index = e.target.closest('.remove-item-btn').dataset.index;
-                    state.newSale.items.splice(index, 1);
-                    // Vuelve a renderizar el formulario para actualizar el total
-                    renderNewSaleForm();
-                }
-            });
-            
-            // Event listener para el cambio de tipo de pago
-            document.getElementById('payment-type').addEventListener('change', (e) => {
-                state.newSale.paymentType = e.target.value;
-            });
-
-            // Event listener para el botón "Imprimir Reporte"
-            document.getElementById('print-report-btn').addEventListener('click', () => {
-                const monthYearInput = document.getElementById('print-month-year');
-                const [year, month] = monthYearInput.value.split('-').map(Number);
-                if (year && month) {
-                    printReport(month - 1, year); // Los meses en JS son de 0-11
-                } else {
-                    showMessageModal('Error de Impresión', 'Por favor, seleccione un mes y año para imprimir.');
-                }
-            });
-
-            // Event listener para el botón "Limpiar Historial"
-            document.getElementById('clear-sales-btn').addEventListener('click', () => {
-                showClearModal();
-            });
-
-            // Event listeners para el modal de confirmación
-            clearModalConfirmEl.addEventListener('click', () => {
-                state.sales = [];
-                // Se restaura el stock original al limpiar el historial
-                state.products = state.products.map(p => {
-                    return { ...p, stock: p.originalStock || p.stock };
-                });
-                renderApp();
-                hideClearModal();
-            });
-            clearModalCancelEl.addEventListener('click', () => {
-                hideClearModal();
-            });
-            
-            // Event listener para el botón de cerrar el modal de mensajes
-            document.getElementById('message-modal-close').addEventListener('click', () => {
-                hideMessageModal();
-            });
         });
-    </script>
-<footer class="mt-8 text-center text-gray-500 text-sm">
-<p>Creado por MONKEY para Anita Maria Figueroa.</p>
-</footer>
-<script>
-            // Lógica automática para tipo de venta
-            document.getElementById('payment-type').addEventListener('change', (e) => {
-                const amountPaidEl = document.getElementById('amount-paid');
-                if (e.target.value === 'credito') {
-                    amountPaidEl.value = 0;
-                    amountPaidEl.setAttribute('readonly', true);
-                } else {
-                    amountPaidEl.removeAttribute('readonly');
+    }
+    
+    window.editarProducto = function(id) {
+        const nombre = document.getElementById(`nombre_${id}`).value.trim();
+        const precio = parseFloat(document.getElementById(`precio_${id}`).value);
+        const stock = parseInt(document.getElementById(`stock_${id}`).value);
+        if (!nombre) { mostrarMsj('Error', 'Nombre requerido'); return; }
+        if (isNaN(precio) || precio <= 0) { mostrarMsj('Error', 'Precio inválido'); return; }
+        if (isNaN(stock) || stock < 0) { mostrarMsj('Error', 'Stock inválido'); return; }
+        const idx = productos.findIndex(p => p.id === id);
+        if (idx === -1) { mostrarMsj('Error', 'Producto no encontrado'); return; }
+        productos[idx].nombre = nombre;
+        productos[idx].precio = precio;
+        productos[idx].stock = stock;
+        if (productos[idx].stockOriginal === undefined) productos[idx].stockOriginal = stock;
+        guardarTodo();
+        renderProductos();
+        renderItemsVenta();
+        renderHistorial();
+        renderResumen();
+        mostrarMsj('Éxito', `Producto "${nombre}" actualizado`);
+    };
+    
+    window.eliminarProducto = function(id) {
+        if (productos.length <= 1) { mostrarMsj('Error', 'Debe haber al menos un producto'); return; }
+        const producto = productos.find(p => p.id === id);
+        if (confirm(`¿Eliminar "${producto.nombre}"?`)) {
+            productos = productos.filter(p => p.id !== id);
+            itemsVenta = itemsVenta.filter(i => i.productId !== id);
+            guardarTodo();
+            renderProductos();
+            renderItemsVenta();
+            renderHistorial();
+            renderResumen();
+            mostrarMsj('Eliminado', `"${producto.nombre}" eliminado`);
+        }
+    };
+    
+    function renderItemsVenta() {
+        const container = document.getElementById('itemsContainer');
+        container.innerHTML = '<strong>📦 Productos</strong>';
+        if (itemsVenta.length === 0) {
+            container.innerHTML += '<p style="color:gray; padding:10px;">No hay productos. Presiona "+ Añadir Producto"</p>';
+            return;
+        }
+        itemsVenta.forEach((item, idx) => {
+            const prod = productos.find(p => p.id === item.productId);
+            const div = document.createElement('div');
+            div.className = 'sale-item';
+            div.innerHTML = `
+                <select data-idx="${idx}" class="item-select" style="width:60%;">
+                    <option value="">Seleccionar</option>
+                    ${productos.map(p => `<option value="${p.id}" ${p.id === item.productId ? 'selected' : ''}>${p.nombre} (stock: ${p.stock})</option>`).join('')}
+                </select>
+                <input type="number" data-idx="${idx}" class="item-qty" value="${item.quantity || 1}" min="1" style="width:80px;">
+                <button data-idx="${idx}" class="remove-item" style="background:#ef4444; padding:8px 12px;">✖</button>
+            `;
+            container.appendChild(div);
+        });
+        actualizarTotal();
+        
+        document.querySelectorAll('.item-select').forEach(sel => {
+            sel.onchange = (e) => {
+                const idx = parseInt(e.target.dataset.idx);
+                if (!isNaN(idx) && itemsVenta[idx]) {
+                    itemsVenta[idx].productId = e.target.value;
+                    actualizarTotal();
                 }
-                state.newSale.paymentType = e.target.value;
-            });
-
-            // Imprimir reporte diario
-            function printDailyReport(dayStr) {
-                const date = new Date(dayStr);
-                const sales = state.sales.filter(sale => {
-                    const saleDate = new Date(sale.date);
-                    return saleDate.toDateString() === date.toDateString();
-                });
-
-                const printContainer = document.querySelector('.print-container');
-                printContainer.innerHTML = '';
-
-                if (sales.length === 0) {
-                    showMessageModal('Error de Impresión', 'No hay ventas para la fecha seleccionada.');
-                    return;
+            };
+        });
+        document.querySelectorAll('.item-qty').forEach(inp => {
+            inp.onchange = (e) => {
+                const idx = parseInt(e.target.dataset.idx);
+                let qty = parseInt(e.target.value);
+                if (isNaN(qty) || qty < 1) qty = 1;
+                if (!isNaN(idx) && itemsVenta[idx]) {
+                    itemsVenta[idx].quantity = qty;
+                    actualizarTotal();
                 }
-
-                const header = document.createElement('div');
-                header.className = 'p-8 text-center';
-                header.innerHTML = `
-                    <h1 class="text-4xl font-bold mb-2">Reporte Diario de Ventas</h1>
-                    <h2 class="text-xl text-gray-600 mb-6">Día: ${date.toLocaleDateString()}</h2>
-                `;
-                printContainer.appendChild(header);
-
-                const table = document.createElement('table');
-                table.className = 'table-print-view text-left text-sm';
-                table.innerHTML = \`
-                    <thead class="bg-gray-200">
-                        <tr>
-                            <th class="px-6 py-3">Fecha</th>
-                            <th class="px-6 py-3">Comprador</th>
-                            <th class="px-6 py-3">Productos</th>
-                            <th class="px-6 py-3">Total</th>
-                            <th class="px-6 py-3">Deuda</th>
-                            <th class="px-6 py-3">Tipo de Venta</th>
-                        </tr>
-                    </thead>
-                    <tbody></tbody>
-                \`;
-
-                const tbody = table.querySelector('tbody');
-                let total = 0;
-                let deuda = 0;
-
-                sales.forEach(sale => {
-                    total += sale.totalAmount;
-                    deuda += sale.amountOwed;
-                    const productsList = sale.items.map(item => \`\${item.name} (\${item.quantity})\`).join(', ');
-                    const paymentTypeMap = {
-                        'contado': 'Contado',
-                        'credito': 'Crédito',
-                        'transferencia': 'Transferencia'
-                    };
-                    const row = document.createElement('tr');
-                    row.innerHTML = \`
-                        <td class="px-6 py-4">\${new Date(sale.date).toLocaleDateString()}</td>
-                        <td class="px-6 py-4">\${sale.buyerName}</td>
-                        <td class="px-6 py-4">\${productsList}</td>
-                        <td class="px-6 py-4">\${formatCurrency(sale.totalAmount)}</td>
-                        <td class="px-6 py-4">\${formatCurrency(sale.amountOwed)}</td>
-                        <td class="px-6 py-4">\${paymentTypeMap[sale.paymentType]}</td>
-                    \`;
-                    tbody.appendChild(row);
-                });
-
-                const summaryRow = document.createElement('tr');
-                summaryRow.className = 'font-bold';
-                summaryRow.innerHTML = \`
-                    <td colspan="3" class="px-6 py-4 text-right">Totales del día:</td>
-                    <td class="px-6 py-4">\${formatCurrency(total)}</td>
-                    <td class="px-6 py-4">\${formatCurrency(deuda)}</td>
-                    <td class="px-6 py-4"></td>
-                \`;
-                tbody.appendChild(summaryRow);
-
-                printContainer.appendChild(table);
-                window.print();
+            };
+        });
+        document.querySelectorAll('.remove-item').forEach(btn => {
+            btn.onclick = (e) => {
+                const idx = parseInt(e.target.dataset.idx);
+                if (!isNaN(idx)) {
+                    itemsVenta.splice(idx, 1);
+                    renderItemsVenta();
+                }
+            };
+        });
+    }
+    
+    function actualizarTotal() {
+        let total = 0;
+        for (const item of itemsVenta) {
+            const prod = productos.find(p => p.id === item.productId);
+            if (prod) total += prod.precio * (item.quantity || 0);
+        }
+        document.getElementById('totalDisplay').innerText = formatPeso(total);
+        return total;
+    }
+    
+    function registrarVenta() {
+        const comprador = document.getElementById('buyerName').value.trim();
+        if (!comprador) { mostrarMsj('Error', 'Nombre del comprador requerido'); return; }
+        if (itemsVenta.length === 0) { mostrarMsj('Error', 'Agregue al menos un producto'); return; }
+        const fecha = document.getElementById('saleDate').value || new Date().toISOString().split('T')[0];
+        let total = 0;
+        const itemsValidos = [];
+        for (const item of itemsVenta) {
+            const prod = productos.find(p => p.id === item.productId);
+            if (!prod) { mostrarMsj('Error', 'Producto inválido'); return; }
+            const cant = item.quantity || 1;
+            if (prod.stock < cant) { mostrarMsj('Stock insuficiente', `${prod.nombre}: solo quedan ${prod.stock}`); return; }
+            total += prod.precio * cant;
+            itemsValidos.push({ productId: prod.id, nombre: prod.nombre, precio: prod.precio, cantidad: cant });
+        }
+        let pagado = parseFloat(document.getElementById('amountPaid').value) || 0;
+        const tipo = document.getElementById('paymentType').value;
+        if (tipo === 'credito') pagado = 0;
+        if (pagado > total) { document.getElementById('errorMsg').style.display = 'block'; return; }
+        document.getElementById('errorMsg').style.display = 'none';
+        for (const item of itemsValidos) {
+            const prod = productos.find(p => p.id === item.productId);
+            if (prod) prod.stock -= item.cantidad;
+        }
+        ventas.push({
+            id: Date.now(), comprador, fecha, items: itemsValidos,
+            total, pagado, deuda: total - pagado, tipo
+        });
+        guardarTodo();
+        itemsVenta = [];
+        document.getElementById('buyerName').value = '';
+        document.getElementById('saleDate').value = new Date().toISOString().split('T')[0];
+        document.getElementById('amountPaid').value = 0;
+        document.getElementById('paymentType').value = 'contado';
+        renderItemsVenta();
+        renderProductos();
+        renderHistorial();
+        renderResumen();
+        mostrarMsj('Venta registrada', `${comprador} - ${formatPeso(total)}`);
+    }
+    
+    let filtroCliente = '', filtroFecha = '';
+    
+    function renderHistorial() {
+        const container = document.getElementById('historyContainer');
+        let filtradas = [...ventas];
+        if (filtroCliente) filtradas = filtradas.filter(v => v.comprador.toLowerCase().includes(filtroCliente.toLowerCase()));
+        if (filtroFecha) filtradas = filtradas.filter(v => v.fecha === filtroFecha);
+        if (filtradas.length === 0) { container.innerHTML = '<p style="text-align:center; color:gray;">No hay ventas</p>'; return; }
+        let html = '<table><thead><tr><th>Fecha</th><th>Cliente</th><th>Productos</th><th>Total</th><th>Deuda</th><th>Tipo</th></tr></thead><tbody>';
+        for (const v of filtradas) {
+            const prodList = v.items.map(i => `${i.nombre} x${i.cantidad}`).join(', ');
+            html += `<tr><td>${v.fecha}</td><td><strong>${escapeHtml(v.comprador)}</strong></td><td>${escapeHtml(prodList)}</td><td>${formatPeso(v.total)}</td><td class="${v.deuda > 0 ? 'text-red' : 'text-green'}">${formatPeso(v.deuda)}</td><td>${v.tipo === 'contado' ? '💰 Contado' : (v.tipo === 'credito' ? '📝 Crédito' : '💸 Transferencia')}</td></tr>`;
+        }
+        html += '</tbody></table>';
+        container.innerHTML = html;
+    }
+    
+    function escapeHtml(str) { return str.replace(/[&<>]/g, m => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;' }[m])); }
+    
+    function renderResumen() {
+        let totalGeneral = 0;
+        for (const v of ventas) totalGeneral += v.total;
+        document.getElementById('totalSales').innerText = formatPeso(totalGeneral);
+        const ahora = new Date();
+        const añoActual = ahora.getFullYear();
+        const mesActual = ahora.getMonth() + 1;
+        let conteoMes = 0, contadoMes = 0, creditoMes = 0, transferenciaMes = 0;
+        for (const v of ventas) {
+            const [a, m] = v.fecha.split('-');
+            if (parseInt(a) === añoActual && parseInt(m) === mesActual) {
+                conteoMes++;
+                if (v.tipo === 'contado') contadoMes += v.total;
+                else if (v.tipo === 'credito') creditoMes += v.total;
+                else transferenciaMes += v.total;
             }
+        }
+        document.getElementById('monthlyCount').innerText = conteoMes;
+        document.getElementById('monthlyContado').innerText = formatPeso(contadoMes);
+        document.getElementById('monthlyCredito').innerText = formatPeso(creditoMes);
+        document.getElementById('monthlyTransferencia').innerText = formatPeso(transferenciaMes);
+    }
+    
+    function imprimirMes() {
+        const valor = document.getElementById('printMonth').value;
+        if (!valor) { mostrarMsj('Error', 'Seleccione un mes'); return; }
+        const [año, mes] = valor.split('-').map(Number);
+        const filtradas = ventas.filter(v => {
+            const [a, m] = v.fecha.split('-');
+            return parseInt(a) === año && parseInt(m) === mes;
+        });
+        if (filtradas.length === 0) { mostrarMsj('Sin datos', `No hay ventas en ${valor}`); return; }
+        const win = window.open('', '_blank');
+        win.document.write(`<html><head><title>Reporte ${valor}</title><style>body{font-family:Arial;padding:20px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #000;padding:8px}th{background:#f0f0f0}</style></head><body><h1 style="text-align:center">Reporte de Ventas</h1><h2 style="text-align:center">${valor}</h2><table><thead><tr><th>Fecha</th><th>Cliente</th><th>Productos</th><th>Total</th><th>Deuda</th><th>Tipo</th></tr></thead><tbody>`);
+        for (const v of filtradas) win.document.write(`<tr><td>${v.fecha}</td><td>${v.comprador}</td><td>${v.items.map(i=>`${i.nombre} x${i.cantidad}`).join(', ')}</td><td>${formatPeso(v.total)}</td><td>${formatPeso(v.deuda)}</td><td>${v.tipo}</td></tr>`);
+        win.document.write(`</tbody></table></body></html>`);
+        win.document.close();
+        win.print();
+    }
+    
+    function imprimirDia() {
+        const fecha = document.getElementById('printDate').value;
+        if (!fecha) { mostrarMsj('Error', 'Seleccione una fecha'); return; }
+        const filtradas = ventas.filter(v => v.fecha === fecha);
+        if (filtradas.length === 0) { mostrarMsj('Sin datos', `No hay ventas el ${fecha}`); return; }
+        const win = window.open('', '_blank');
+        win.document.write(`<html><head><title>Reporte ${fecha}</title><style>body{font-family:Arial;padding:20px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #000;padding:8px}th{background:#f0f0f0}</style></head><body><h1 style="text-align:center">Reporte Diario</h1><h2 style="text-align:center">${new Date(fecha).toLocaleDateString()}</h2><table><thead><tr><th>Cliente</th><th>Productos</th><th>Total</th><th>Deuda</th><th>Tipo</th></tr></thead><tbody>`);
+        for (const v of filtradas) win.document.write(`<tr><td>${v.comprador}</td><td>${v.items.map(i=>`${i.nombre} x${i.cantidad}`).join(', ')}</td><td>${formatPeso(v.total)}</td><td>${formatPeso(v.deuda)}</td><td>${v.tipo}</td></tr>`);
+        win.document.write(`</tbody></table></body></html>`);
+        win.document.close();
+        win.print();
+    }
+    
+    function limpiarHistorial() {
+        if (confirm('⚠️ ¿Eliminar TODO el historial? El stock se restaurará.')) {
+            ventas = [];
+            productos = productos.map(p => ({ ...p, stock: p.stockOriginal !== undefined ? p.stockOriginal : p.stock }));
+            guardarTodo();
+            renderProductos();
+            renderHistorial();
+            renderResumen();
+            mostrarMsj('Historial limpiado', 'Stock restaurado');
+        }
+    }
+    
+    document.getElementById('addItemBtn').onclick = () => {
+        if (productos.length === 0) { mostrarMsj('Error', 'No hay productos'); return; }
+        itemsVenta.push({ productId: productos[0].id, quantity: 1 });
+        renderItemsVenta();
+    };
+    document.getElementById('registerBtn').onclick = registrarVenta;
+    document.getElementById('newProductBtn').onclick = () => document.getElementById('productModal').style.display = 'block';
+    document.getElementById('saveProductBtn').onclick = () => {
+        const nombre = document.getElementById('newProdName').value.trim();
+        const precio = parseFloat(document.getElementById('newProdPrice').value);
+        const stock = parseInt(document.getElementById('newProdStock').value);
+        if (!nombre) { mostrarMsj('Error', 'Nombre requerido'); return; }
+        if (isNaN(precio) || precio <= 0) { mostrarMsj('Error', 'Precio inválido'); return; }
+        if (isNaN(stock) || stock < 0) { mostrarMsj('Error', 'Stock inválido'); return; }
+        productos.push({ id: Date.now().toString(), nombre, precio, stock, stockOriginal: stock });
+        guardarTodo();
+        renderProductos();
+        renderItemsVenta();
+        ocultarModal('productModal');
+        mostrarMsj('Éxito', `Producto "${nombre}" agregado`);
+    };
+    document.getElementById('cancelProductBtn').onclick = () => ocultarModal('productModal');
+    document.getElementById('closeMsgBtn').onclick = () => ocultarModal('messageModal');
+    document.getElementById('printMonthBtn').onclick = imprimirMes;
+    document.getElementById('printDayBtn').onclick = imprimirDia;
+    document.getElementById('clearHistoryBtn').onclick = limpiarHistorial;
+    document.getElementById('searchClient').oninput = (e) => { filtroCliente = e.target.value; renderHistorial(); };
+    document.getElementById('searchDate').onchange = (e) => { filtroFecha = e.target.value; renderHistorial(); };
+    document.getElementById('clearSearchBtn').onclick = () => {
+        document.getElementById('searchClient').value = ''; document.getElementById('searchDate').value = '';
+        filtroCliente = ''; filtroFecha = ''; renderHistorial();
+    };
+    
+    function iniciar() {
+        cargarDatos();
+        renderProductos();
+        renderItemsVenta();
+        renderHistorial();
+        renderResumen();
+        document.getElementById('saleDate').value = new Date().toISOString().split('T')[0];
+        document.getElementById('printMonth').value = new Date().toISOString().slice(0,7);
+        document.getElementById('printDate').value = new Date().toISOString().split('T')[0];
+    }
+    iniciar();
+</script>
 
-            document.getElementById('print-daily-report-btn').addEventListener('click', () => {
-                const input = document.getElementById('print-daily-date');
-                if (input.value) {
-                    printDailyReport(input.value);
-                } else {
-                    showMessageModal('Error de Impresión', 'Por favor, seleccione una fecha para imprimir.');
-                }
-            });
-</script></body>
+<footer style="text-align:center; font-size:11px; color:gray; margin-top:20px;">
+    ✅ Sistema Anita Maria — iPad mini 2 compatible | Datos locales | Creado por Monkey 63
+</footer>
+
+</body>
 </html>
