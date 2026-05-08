@@ -56,25 +56,43 @@
             margin: 8px 0 16px 0;
         }
         label { font-weight: 600; font-size: 14px; }
+        
+        /* ========== CORRECCIÓN PARA iPhone ========== */
         .table-container {
             overflow-x: auto;
             -webkit-overflow-scrolling: touch;
+            width: 100%;
         }
-        table {
+        .historial-table {
+            min-width: 700px;
             width: 100%;
             border-collapse: collapse;
             background: white;
-            min-width: 600px;
         }
-        th, td {
+        .historial-table th,
+        .historial-table td {
             padding: 12px;
             text-align: left;
             border-bottom: 1px solid #e5e7eb;
             white-space: nowrap;
         }
-        th {
+        .historial-table th {
             background: #f9fafb;
             font-weight: 600;
+        }
+        /* ========================================== */
+        
+        .products-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .products-table th, .products-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        .products-table th {
+            background: #f9fafb;
         }
         .sale-item {
             background: #f3f4f6;
@@ -138,6 +156,7 @@
             font-size: 11px;
             font-weight: bold;
             color: #991b1b;
+            display: inline-block;
         }
         .pagado {
             background: #d1fae5;
@@ -146,6 +165,7 @@
             font-size: 11px;
             font-weight: bold;
             color: #065f46;
+            display: inline-block;
         }
         @media print {
             body > *:not(.print-container) { display: none !important; }
@@ -217,14 +237,9 @@
             <button id="newProductBtn" class="btn-success">+ Nuevo Producto</button>
         </div>
         <div class="table-container">
-            <table id="productsTable">
+            <table class="products-table">
                 <thead>
-                    <tr>
-                        <th>Nombre</th>
-                        <th>Precio</th>
-                        <th>Stock</th>
-                        <th>Acciones</th>
-                    </tr>
+                    <tr><th>Nombre</th><th>Precio</th><th>Stock</th><th>Acciones</th></tr>
                 </thead>
                 <tbody id="productsTableBody"></tbody>
             </table>
@@ -274,14 +289,11 @@
 <input type="file" id="fileImport" accept=".json" style="display: none;">
 
 <script>
-    // ==================== NASA-GRADE CODE - COMPLETAMENTE CORREGIDO ====================
-    
     // ==================== DATOS GLOBALES ====================
     let productos = [];
     let ventas = [];
     let itemsVenta = [];
     
-    // ==================== UTILIDADES ====================
     const formatPeso = (n) => '$' + (n || 0).toLocaleString('es-CL');
     
     function mostrarMensaje(titulo, texto) {
@@ -297,7 +309,7 @@
         if (modal) modal.style.display = 'none';
     }
     
-    // ==================== ALMACENAMIENTO LOCAL ====================
+    // ==================== ALMACENAMIENTO ====================
     function guardarTodo() {
         localStorage.setItem('anita_productos', JSON.stringify(productos));
         localStorage.setItem('anita_ventas', JSON.stringify(ventas));
@@ -323,16 +335,10 @@
         }
     }
     
-    // ==================== EXPORTAR / IMPORTAR ====================
+    // ==================== EXPORTAR/IMPORTAR ====================
     function exportarDatos() {
-        const datos = {
-            version: '1.0',
-            fechaExportacion: new Date().toISOString(),
-            productos: productos,
-            ventas: ventas
-        };
-        const jsonStr = JSON.stringify(datos, null, 2);
-        const blob = new Blob([jsonStr], { type: 'application/json' });
+        const datos = { version: '1.0', fechaExportacion: new Date().toISOString(), productos: productos, ventas: ventas };
+        const blob = new Blob([JSON.stringify(datos, null, 2)], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
@@ -341,7 +347,7 @@
         a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
-        mostrarMensaje('Exportación completa', 'Archivo de datos guardado.\nEnvíalo por AirDrop/WhatsApp al otro dispositivo.');
+        mostrarMensaje('Exportación completa', 'Archivo guardado. Envíalo al otro dispositivo.');
     }
     
     function importarDesdeArchivo(event) {
@@ -354,22 +360,20 @@
                 if (datos.productos && datos.ventas !== undefined) {
                     productos = datos.productos;
                     ventas = datos.ventas;
-                    guardarTodo();
-                    // Resetear items de venta actual
                     itemsVenta = [];
                     document.getElementById('buyerName').value = '';
                     document.getElementById('amountPaid').value = 0;
-                    document.getElementById('paymentType').value = 'contado';
+                    guardarTodo();
                     renderProductos();
                     renderItemsVenta();
                     renderHistorial();
                     renderResumen();
-                    mostrarMensaje('Importación exitosa', `Se importaron:\n📦 ${productos.length} productos\n📜 ${ventas.length} ventas`);
+                    mostrarMensaje('Importación exitosa', `📦 ${productos.length} productos\n📜 ${ventas.length} ventas`);
                 } else {
-                    mostrarMensaje('Error', 'El archivo no contiene datos válidos');
+                    mostrarMensaje('Error', 'Archivo inválido');
                 }
             } catch(error) {
-                mostrarMensaje('Error', 'No se pudo leer el archivo. Formato inválido.');
+                mostrarMensaje('Error', 'No se pudo leer el archivo');
             }
             document.getElementById('fileImport').value = '';
         };
@@ -377,173 +381,122 @@
     }
     
     document.getElementById('exportarBtn').onclick = exportarDatos;
-    document.getElementById('importarBtn').onclick = function() { document.getElementById('fileImport').click(); };
+    document.getElementById('importarBtn').onclick = () => document.getElementById('fileImport').click();
     document.getElementById('fileImport').onchange = importarDesdeArchivo;
     
-    // ==================== FECHAS COMPATIBLES iOS 12 ====================
+    // ==================== FECHAS ====================
     function obtenerFechaActual() {
         const ahora = new Date();
-        const año = ahora.getFullYear();
-        const mes = String(ahora.getMonth() + 1).padStart(2, '0');
-        const dia = String(ahora.getDate()).padStart(2, '0');
-        return `${año}-${mes}-${dia}`;
+        return `${ahora.getFullYear()}-${String(ahora.getMonth()+1).padStart(2,'0')}-${String(ahora.getDate()).padStart(2,'0')}`;
     }
     
     function obtenerMesActual() {
         const ahora = new Date();
-        const año = ahora.getFullYear();
-        const mes = String(ahora.getMonth() + 1).padStart(2, '0');
-        return `${año}-${mes}`;
+        return `${ahora.getFullYear()}-${String(ahora.getMonth()+1).padStart(2,'0')}`;
     }
     
-    // ==================== PRODUCTOS (EDITABLES) ====================
+    // ==================== PRODUCTOS ====================
     function renderProductos() {
         const tbody = document.getElementById('productsTableBody');
         if (!tbody) return;
         tbody.innerHTML = '';
-        
-        for (let i = 0; i < productos.length; i++) {
-            const p = productos[i];
+        for (const p of productos) {
             const row = tbody.insertRow();
-            // ID único para los inputs
-            const nameId = `nombre_${p.id}`;
-            const priceId = `precio_${p.id}`;
-            const stockId = `stock_${p.id}`;
             row.innerHTML = `
-                <td><input type="text" id="${nameId}" value="${escapeHtml(p.nombre)}" class="edit-input"></td>
-                <td><input type="number" id="${priceId}" value="${p.precio}" class="edit-input" style="width:100px;"></td>
-                <td><input type="number" id="${stockId}" value="${p.stock}" class="edit-input" style="width:80px;"></td>
-                <td>
-                    <button onclick="editarProducto('${p.id}')" class="btn-primary btn-xs" style="background:#4f46e5; padding:6px 12px;">Guardar</button>
-                    <button onclick="eliminarProducto('${p.id}')" class="btn-danger btn-xs" style="background:#ef4444; padding:6px 12px;">Borrar</button>
+                <td><input type="text" id="nombre_${p.id}" value="${escapeHtml(p.nombre)}" class="edit-input"></td>
+                <td><input type="number" id="precio_${p.id}" value="${p.precio}" class="edit-input" style="width:100px;"></td>
+                <td><input type="number" id="stock_${p.id}" value="${p.stock}" class="edit-input" style="width:80px;"></td>
+                <td><button onclick="editarProducto('${p.id}')" class="btn-xs" style="background:#4f46e5; padding:6px 12px;">Guardar</button>
+                    <button onclick="eliminarProducto('${p.id}')" class="btn-xs" style="background:#ef4444; padding:6px 12px;">Borrar</button>
                 </td>
             `;
         }
     }
     
     window.editarProducto = function(id) {
-        const nombreInput = document.getElementById(`nombre_${id}`);
-        const precioInput = document.getElementById(`precio_${id}`);
-        const stockInput = document.getElementById(`stock_${id}`);
-        
-        if (!nombreInput || !precioInput || !stockInput) {
-            mostrarMensaje('Error', 'No se encontraron los campos del producto');
-            return;
-        }
-        
-        const nombre = nombreInput.value.trim();
-        const precio = parseFloat(precioInput.value);
-        const stock = parseInt(stockInput.value);
-        
+        const nombre = document.getElementById(`nombre_${id}`).value.trim();
+        const precio = parseFloat(document.getElementById(`precio_${id}`).value);
+        const stock = parseInt(document.getElementById(`stock_${id}`).value);
         if (!nombre) { mostrarMensaje('Error', 'Nombre requerido'); return; }
         if (isNaN(precio) || precio <= 0) { mostrarMensaje('Error', 'Precio inválido'); return; }
         if (isNaN(stock) || stock < 0) { mostrarMensaje('Error', 'Stock inválido'); return; }
-        
         const idx = productos.findIndex(p => p.id === id);
         if (idx !== -1) {
-            productos[idx].nombre = nombre;
-            productos[idx].precio = precio;
-            productos[idx].stock = stock;
+            productos[idx] = { ...productos[idx], nombre, precio, stock };
+            guardarTodo();
             renderProductos();
-            renderItemsVenta();  // Actualizar dropdowns
+            renderItemsVenta();
             renderHistorial();
             renderResumen();
-            guardarTodo();
             mostrarMensaje('Éxito', `Producto "${nombre}" actualizado`);
         }
     };
     
     window.eliminarProducto = function(id) {
-        if (productos.length <= 1) {
-            mostrarMensaje('Error', 'Debe haber al menos un producto');
-            return;
-        }
+        if (productos.length <= 1) { mostrarMensaje('Error', 'Debe haber al menos un producto'); return; }
         const producto = productos.find(p => p.id === id);
-        if (!producto) return;
-        
         if (confirm(`¿Eliminar "${producto.nombre}"?`)) {
             productos = productos.filter(p => p.id !== id);
             itemsVenta = itemsVenta.filter(i => i.productId !== id);
+            guardarTodo();
             renderProductos();
             renderItemsVenta();
             renderHistorial();
             renderResumen();
-            guardarTodo();
             mostrarMensaje('Eliminado', `"${producto.nombre}" eliminado`);
         }
     };
     
-    // Nueva función: Marcar venta como pagada
     window.marcarComoPagada = function(idVenta) {
         const venta = ventas.find(v => v.id == idVenta);
         if (!venta) return;
-        
-        const montoPendiente = venta.deuda;
-        if (montoPendiente <= 0) {
-            mostrarMensaje('Info', 'Esta venta ya está pagada');
-            return;
-        }
-        
+        if (venta.deuda <= 0) { mostrarMensaje('Info', 'Esta venta ya está pagada'); return; }
         venta.pagado = venta.total;
         venta.deuda = 0;
         venta.fechaPago = new Date().toISOString().split('T')[0];
-        
         guardarTodo();
         renderHistorial();
         renderResumen();
-        mostrarMensaje('Pago registrado', `Se registró el pago de ${formatPeso(montoPendiente)} para ${venta.comprador}`);
+        mostrarMensaje('Pago registrado', `Se registró el pago de ${formatPeso(venta.total)} para ${venta.comprador}`);
     };
     
-    function escapeHtml(str) {
-        if (!str) return '';
-        return str.replace(/[&<>]/g, function(m) {
-            if (m === '&') return '&amp;';
-            if (m === '<') return '&lt;';
-            if (m === '>') return '&gt;';
-            return m;
-        });
-    }
+    function escapeHtml(str) { if (!str) return ''; return str.replace(/[&<>]/g, m => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;' }[m])); }
     
-    // ==================== NUEVO PRODUCTO ====================
-    document.getElementById('newProductBtn').onclick = function() {
+    // Nuevo producto
+    document.getElementById('newProductBtn').onclick = () => {
         document.getElementById('newProdName').value = '';
         document.getElementById('newProdPrice').value = '';
         document.getElementById('newProdStock').value = '';
         document.getElementById('productModal').style.display = 'block';
     };
     
-    document.getElementById('saveProductBtn').onclick = function() {
+    document.getElementById('saveProductBtn').onclick = () => {
         const nombre = document.getElementById('newProdName').value.trim();
         const precio = parseFloat(document.getElementById('newProdPrice').value);
         const stock = parseInt(document.getElementById('newProdStock').value);
-        
         if (!nombre) { mostrarMensaje('Error', 'Nombre requerido'); return; }
         if (isNaN(precio) || precio <= 0) { mostrarMensaje('Error', 'Precio inválido'); return; }
         if (isNaN(stock) || stock < 0) { mostrarMensaje('Error', 'Stock inválido'); return; }
-        
-        const nuevoId = Date.now().toString();
-        productos.push({ id: nuevoId, nombre: nombre, precio: precio, stock: stock });
+        productos.push({ id: Date.now().toString(), nombre, precio, stock });
+        guardarTodo();
         renderProductos();
         renderItemsVenta();
-        guardarTodo();
         cerrarModal('productModal');
         mostrarMensaje('Éxito', `Producto "${nombre}" agregado`);
     };
     
-    document.getElementById('cancelProductBtn').onclick = function() { cerrarModal('productModal'); };
-    document.getElementById('closeMsgBtn').onclick = function() { cerrarModal('messageModal'); };
+    document.getElementById('cancelProductBtn').onclick = () => cerrarModal('productModal');
+    document.getElementById('closeMsgBtn').onclick = () => cerrarModal('messageModal');
     
     // ==================== ITEMS VENTA ====================
     function renderItemsVenta() {
         const container = document.getElementById('itemsContainer');
         if (!container) return;
         container.innerHTML = '<strong>📦 Productos</strong>';
-        
         if (itemsVenta.length === 0) {
             container.innerHTML += '<p style="color:gray; padding:10px;">No hay productos. Presiona "+ Añadir Producto"</p>';
             return;
         }
-        
         for (let i = 0; i < itemsVenta.length; i++) {
             const item = itemsVenta[i];
             const div = document.createElement('div');
@@ -559,43 +512,19 @@
             `;
             container.appendChild(div);
         }
-        
         actualizarTotal();
         asignarEventosItems();
     }
     
     function asignarEventosItems() {
         document.querySelectorAll('.item-select').forEach(sel => {
-            sel.onchange = function() {
-                const idx = parseInt(this.getAttribute('data-idx'));
-                if (!isNaN(idx) && itemsVenta[idx]) {
-                    itemsVenta[idx].productId = this.value;
-                    actualizarTotal();
-                }
-            };
+            sel.onchange = function() { const idx = parseInt(this.dataset.idx); if (!isNaN(idx) && itemsVenta[idx]) { itemsVenta[idx].productId = this.value; actualizarTotal(); } };
         });
-        
         document.querySelectorAll('.item-qty').forEach(inp => {
-            inp.onchange = function() {
-                const idx = parseInt(this.getAttribute('data-idx'));
-                let qty = parseInt(this.value);
-                if (isNaN(qty) || qty < 1) qty = 1;
-                if (!isNaN(idx) && itemsVenta[idx]) {
-                    itemsVenta[idx].quantity = qty;
-                    this.value = qty;
-                    actualizarTotal();
-                }
-            };
+            inp.onchange = function() { const idx = parseInt(this.dataset.idx); let qty = parseInt(this.value); if (isNaN(qty) || qty < 1) qty = 1; if (!isNaN(idx) && itemsVenta[idx]) { itemsVenta[idx].quantity = qty; this.value = qty; actualizarTotal(); } };
         });
-        
         document.querySelectorAll('.remove-item').forEach(btn => {
-            btn.onclick = function() {
-                const idx = parseInt(this.getAttribute('data-idx'));
-                if (!isNaN(idx)) {
-                    itemsVenta.splice(idx, 1);
-                    renderItemsVenta();
-                }
-            };
+            btn.onclick = function() { const idx = parseInt(this.dataset.idx); if (!isNaN(idx)) { itemsVenta.splice(idx, 1); renderItemsVenta(); } };
         });
     }
     
@@ -605,40 +534,26 @@
             const prod = productos.find(p => p.id === item.productId);
             if (prod) total += prod.precio * (item.quantity || 0);
         }
-        const totalDisplay = document.getElementById('totalDisplay');
-        if (totalDisplay) totalDisplay.innerText = formatPeso(total);
+        document.getElementById('totalDisplay').innerText = formatPeso(total);
         return total;
     }
     
-    // ==================== BOTONES PRINCIPALES ====================
-    document.getElementById('addItemBtn').onclick = function() {
-        if (productos.length === 0) {
-            mostrarMensaje('Error', 'No hay productos. Crea uno primero.');
-            return;
-        }
+    document.getElementById('addItemBtn').onclick = () => {
+        if (productos.length === 0) { mostrarMensaje('Error', 'No hay productos'); return; }
         itemsVenta.push({ productId: productos[0].id, quantity: 1 });
         renderItemsVenta();
     };
     
-    document.getElementById('paymentType').onchange = function() {
-        if (this.value === 'credito') {
-            document.getElementById('amountPaid').value = 0;
-        }
-    };
+    document.getElementById('paymentType').onchange = function() { if (this.value === 'credito') document.getElementById('amountPaid').value = 0; };
     
-    document.getElementById('registerBtn').onclick = function() {
+    document.getElementById('registerBtn').onclick = () => {
         const comprador = document.getElementById('buyerName').value.trim();
         if (!comprador) { mostrarMensaje('Error', 'Nombre del comprador requerido'); return; }
         if (itemsVenta.length === 0) { mostrarMensaje('Error', 'Agregue al menos un producto'); return; }
-        
-        const fecha = document.getElementById('saleDate').value;
-        if (!fecha) { mostrarMensaje('Error', 'Seleccione una fecha'); return; }
-        
+        const fecha = document.getElementById('saleDate').value || obtenerFechaActual();
         let total = 0;
         const itemsValidos = [];
-        
-        for (let i = 0; i < itemsVenta.length; i++) {
-            const item = itemsVenta[i];
+        for (const item of itemsVenta) {
             if (!item.productId) { mostrarMensaje('Error', 'Seleccione un producto'); return; }
             const prod = productos.find(p => p.id === item.productId);
             if (!prod) { mostrarMensaje('Error', 'Producto no encontrado'); return; }
@@ -647,113 +562,65 @@
             total += prod.precio * cant;
             itemsValidos.push({ productId: prod.id, nombre: prod.nombre, precio: prod.precio, cantidad: cant });
         }
-        
         let pagado = parseFloat(document.getElementById('amountPaid').value) || 0;
         const tipo = document.getElementById('paymentType').value;
         if (tipo === 'credito') pagado = 0;
-        
-        if (pagado > total) {
-            document.getElementById('errorMsg').style.display = 'block';
-            return;
-        }
+        if (pagado > total) { document.getElementById('errorMsg').style.display = 'block'; return; }
         document.getElementById('errorMsg').style.display = 'none';
-        
-        // Descontar stock
-        for (const item of itemsValidos) {
-            const prod = productos.find(p => p.id === item.productId);
-            if (prod) prod.stock -= item.cantidad;
-        }
-        
-        ventas.push({
-            id: Date.now(),
-            comprador: comprador,
-            fecha: fecha,
-            items: itemsValidos,
-            total: total,
-            pagado: pagado,
-            deuda: total - pagado,
-            tipo: tipo
-        });
-        
-        // Resetear TODO
+        for (const item of itemsValidos) { const prod = productos.find(p => p.id === item.productId); if (prod) prod.stock -= item.cantidad; }
+        ventas.push({ id: Date.now(), comprador, fecha, items: itemsValidos, total, pagado, deuda: total - pagado, tipo });
         itemsVenta = [];
         document.getElementById('buyerName').value = '';
         document.getElementById('amountPaid').value = 0;
         document.getElementById('paymentType').value = 'contado';
-        
         renderItemsVenta();
         renderProductos();
         renderHistorial();
         renderResumen();
         guardarTodo();
-        
         mostrarMensaje('Venta registrada', `${comprador} - ${formatPeso(total)}`);
     };
     
-    // ==================== HISTORIAL (CORREGIDO - TABLA COMPLETA) ====================
-    let filtroCliente = '';
-    let filtroFecha = '';
+    // ==================== HISTORIAL (CORREGIDO) ====================
+    let filtroCliente = '', filtroFecha = '';
     
     function renderHistorial() {
         const container = document.getElementById('historyContainer');
         if (!container) return;
-        
         let filtradas = [...ventas];
         if (filtroCliente) filtradas = filtradas.filter(v => v.comprador.toLowerCase().includes(filtroCliente.toLowerCase()));
         if (filtroFecha) filtradas = filtradas.filter(v => v.fecha === filtroFecha);
+        if (filtradas.length === 0) { container.innerHTML = '<p style="text-align:center; color:gray; padding:20px;">No hay ventas</p>'; return; }
         
-        if (filtradas.length === 0) {
-            container.innerHTML = '<p style="text-align:center; color:gray; padding:20px;">No hay ventas</p>';
-            return;
-        }
-        
-        // Tabla completa con todas las columnas
-        let html = `
-            <table style="min-width: 650px;">
-                <thead>
-                    <tr style="background:#f3f4f6;">
-                        <th style="padding:12px;">📅 Fecha</th>
-                        <th style="padding:12px;">👤 Cliente</th>
-                        <th style="padding:12px;">📦 Productos</th>
-                        <th style="padding:12px;">💰 Total</th>
-                        <th style="padding:12px;">💸 Deuda</th>
-                        <th style="padding:12px;">💳 Tipo</th>
-                        <th style="padding:12px;">⚡ Acción</th>
-                    </tr>
-                </thead>
-                <tbody>
-        `;
-        
+        let html = `<table class="historial-table">
+            <thead><tr>
+                <th>📅 Fecha</th><th>👤 Cliente</th><th>📦 Productos</th><th>💰 Total</th><th>💸 Deuda</th><th>💳 Tipo</th><th>⚡ Acción</th>
+            </tr></thead><tbody>`;
         for (const v of filtradas) {
             const prodList = v.items.map(i => `${i.nombre} x${i.cantidad}`).join(', ');
             const estadoDeuda = v.deuda > 0 ? '<span class="deuda-pendiente">Pendiente</span>' : '<span class="pagado">Pagado</span>';
-            const botonPagar = v.deuda > 0 ? `<button onclick="marcarComoPagada(${v.id})" class="btn-success btn-xs" style="background:#10b981; padding:4px 8px;">✅ Pagar</button>` : '';
+            const botonPagar = v.deuda > 0 ? `<button onclick="marcarComoPagada(${v.id})" class="btn-xs" style="background:#10b981; padding:4px 8px;">✅ Pagar</button>` : '';
             const tipoTexto = v.tipo === 'contado' ? '💰 Contado' : (v.tipo === 'credito' ? '📝 Crédito' : '💸 Transferencia');
-            
-            html += `
-                <tr>
-                    <td style="padding:12px; border-bottom:1px solid #e5e7eb;">${v.fecha}</td>
-                    <td style="padding:12px; border-bottom:1px solid #e5e7eb;"><strong>${escapeHtml(v.comprador)}</strong></td>
-                    <td style="padding:12px; border-bottom:1px solid #e5e7eb;">${escapeHtml(prodList)}</td>
-                    <td style="padding:12px; border-bottom:1px solid #e5e7eb;">${formatPeso(v.total)}</td>
-                    <td style="padding:12px; border-bottom:1px solid #e5e7eb;">${formatPeso(v.deuda)} ${estadoDeuda}</td>
-                    <td style="padding:12px; border-bottom:1px solid #e5e7eb;">${tipoTexto}</td>
-                    <td style="padding:12px; border-bottom:1px solid #e5e7eb;">${botonPagar}</td>
-                </tr>
-            `;
+            html += `<tr>
+                <td>${v.fecha}</td>
+                <td><strong>${escapeHtml(v.comprador)}</strong></td>
+                <td>${escapeHtml(prodList)}</td>
+                <td>${formatPeso(v.total)}</td>
+                <td>${formatPeso(v.deuda)} ${estadoDeuda}</td>
+                <td>${tipoTexto}</td>
+                <td>${botonPagar}</td>
+            </tr>`;
         }
-        
-        html += `</tbody></table>`;
+        html += `</tbody>很多人`;
         container.innerHTML = html;
     }
     
-    document.getElementById('searchClient').oninput = function(e) { filtroCliente = e.target.value; renderHistorial(); };
-    document.getElementById('searchDate').onchange = function(e) { filtroFecha = e.target.value; renderHistorial(); };
-    document.getElementById('clearSearchBtn').onclick = function() {
+    document.getElementById('searchClient').oninput = (e) => { filtroCliente = e.target.value; renderHistorial(); };
+    document.getElementById('searchDate').onchange = (e) => { filtroFecha = e.target.value; renderHistorial(); };
+    document.getElementById('clearSearchBtn').onclick = () => {
         document.getElementById('searchClient').value = '';
         document.getElementById('searchDate').value = '';
-        filtroCliente = '';
-        filtroFecha = '';
+        filtroCliente = ''; filtroFecha = '';
         renderHistorial();
     };
     
@@ -761,42 +628,26 @@
     function renderResumen() {
         let totalGeneral = 0;
         for (const v of ventas) totalGeneral += v.total;
-        const totalSales = document.getElementById('totalSales');
-        if (totalSales) totalSales.innerText = formatPeso(totalGeneral);
+        document.getElementById('totalSales').innerText = formatPeso(totalGeneral);
         
         const ahora = new Date();
         const añoActual = ahora.getFullYear();
         const mesActual = ahora.getMonth() + 1;
-        
-        let conteoMes = 0;
-        let contadoMes = 0;
-        let creditoMes = 0;
-        let transferenciaMes = 0;
-        
+        let conteoMes = 0, contadoMes = 0, creditoMes = 0, transferenciaMes = 0;
         for (const v of ventas) {
             if (!v.fecha) continue;
-            const partes = v.fecha.split('-');
-            if (partes.length === 3) {
-                const año = parseInt(partes[0]);
-                const mes = parseInt(partes[1]);
-                if (año === añoActual && mes === mesActual) {
-                    conteoMes++;
-                    if (v.tipo === 'contado') contadoMes += v.total;
-                    else if (v.tipo === 'credito') creditoMes += v.total;
-                    else if (v.tipo === 'transferencia') transferenciaMes += v.total;
-                }
+            const [a, m] = v.fecha.split('-');
+            if (parseInt(a) === añoActual && parseInt(m) === mesActual) {
+                conteoMes++;
+                if (v.tipo === 'contado') contadoMes += v.total;
+                else if (v.tipo === 'credito') creditoMes += v.total;
+                else if (v.tipo === 'transferencia') transferenciaMes += v.total;
             }
         }
-        
-        const monthlyCount = document.getElementById('monthlyCount');
-        const monthlyContado = document.getElementById('monthlyContado');
-        const monthlyCredito = document.getElementById('monthlyCredito');
-        const monthlyTransferencia = document.getElementById('monthlyTransferencia');
-        
-        if (monthlyCount) monthlyCount.innerText = conteoMes;
-        if (monthlyContado) monthlyContado.innerText = formatPeso(contadoMes);
-        if (monthlyCredito) monthlyCredito.innerText = formatPeso(creditoMes);
-        if (monthlyTransferencia) monthlyTransferencia.innerText = formatPeso(transferenciaMes);
+        document.getElementById('monthlyCount').innerText = conteoMes;
+        document.getElementById('monthlyContado').innerText = formatPeso(contadoMes);
+        document.getElementById('monthlyCredito').innerText = formatPeso(creditoMes);
+        document.getElementById('monthlyTransferencia').innerText = formatPeso(transferenciaMes);
     }
     
     // ==================== IMPRESIÓN ====================
@@ -804,22 +655,13 @@
         const valor = document.getElementById('printMonth').value;
         if (!valor) { mostrarMensaje('Error', 'Seleccione un mes'); return; }
         const [año, mes] = valor.split('-').map(Number);
-        const filtradas = ventas.filter(v => {
-            if (!v.fecha) return false;
-            const [a, m] = v.fecha.split('-');
-            return parseInt(a) === año && parseInt(m) === mes;
-        });
+        const filtradas = ventas.filter(v => { if (!v.fecha) return false; const [a, m] = v.fecha.split('-'); return parseInt(a) === año && parseInt(m) === mes; });
         if (filtradas.length === 0) { mostrarMensaje('Sin datos', `No hay ventas en ${valor}`); return; }
-        
         const win = window.open('', '_blank');
         if (!win) { mostrarMensaje('Error', 'Permite ventanas emergentes en Safari'); return; }
-        
-        win.document.write(`<html><head><title>Reporte ${valor}</title><style>body{font-family:Arial;padding:20px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #000;padding:8px}th{background:#f0f0f0}</style></head><body><h1 style="text-align:center">Reporte de Ventas</h1><h2 style="text-align:center">${valor}</h2></td><thead><tr><th>Fecha</th><th>Cliente</th><th>Productos</th><th>Total</th><th>Deuda</th><th>Tipo</th></tr></thead><tbody>`);
-        
-        for (const v of filtradas) {
-            win.document.write(`<tr><td>${v.fecha}</td><td>${escapeHtml(v.comprador)}</td><td>${v.items.map(i => `${i.nombre} x${i.cantidad}`).join(', ')}</td><td>${formatPeso(v.total)}</td><td>${formatPeso(v.deuda)}</td><td>${v.tipo}</td></tr>`);
-        }
-        win.document.write(`</tbody>}</table></body></html>`);
+        win.document.write(`<html><head><title>Reporte ${valor}</title><style>body{font-family:Arial;padding:20px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #000;padding:8px}th{background:#f0f0f0}</style></head><body><h1 style="text-align:center">Reporte de Ventas</h1><h2 style="text-align:center">${valor}</h2><table><thead><tr><th>Fecha</th><th>Cliente</th><th>Productos</th><th>Total</th><th>Deuda</th><th>Tipo</th></tr></thead><tbody>`);
+        for (const v of filtradas) win.document.write(`<tr><td>${v.fecha}</td><td>${escapeHtml(v.comprador)}</td><td>${v.items.map(i => `${i.nombre} x${i.cantidad}`).join(', ')}</td><td>${formatPeso(v.total)}</td><td>${formatPeso(v.deuda)}</td><td>${v.tipo}</td></tr>`);
+        win.document.write(`</tbody></table></body></html>`);
         win.document.close();
         win.print();
     }
@@ -829,29 +671,22 @@
         if (!fecha) { mostrarMensaje('Error', 'Seleccione una fecha'); return; }
         const filtradas = ventas.filter(v => v.fecha === fecha);
         if (filtradas.length === 0) { mostrarMensaje('Sin datos', `No hay ventas el ${fecha}`); return; }
-        
         const win = window.open('', '_blank');
         if (!win) { mostrarMensaje('Error', 'Permite ventanas emergentes en Safari'); return; }
-        
         win.document.write(`<html><head><title>Reporte ${fecha}</title><style>body{font-family:Arial;padding:20px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #000;padding:8px}th{background:#f0f0f0}</style></head><body><h1 style="text-align:center">Reporte Diario</h1><h2 style="text-align:center">${new Date(fecha).toLocaleDateString()}</h2><table><thead><tr><th>Cliente</th><th>Productos</th><th>Total</th><th>Deuda</th><th>Tipo</th></tr></thead><tbody>`);
-        
-        for (const v of filtradas) {
-            win.document.write(`<table><td>${escapeHtml(v.comprador)}</td><td>${v.items.map(i => `${i.nombre} x${i.cantidad}`).join(', ')}</td><td>${formatPeso(v.total)}</td><td>${formatPeso(v.deuda)}</td><td>${v.tipo}</td></tr>`);
-        }
-        win.document.write(`</tbody>}</table></body></html>`);
+        for (const v of filtradas) win.document.write(`<tr><td>${escapeHtml(v.comprador)}</td><td>${v.items.map(i => `${i.nombre} x${i.cantidad}`).join(', ')}</td><td>${formatPeso(v.total)}</td><td>${formatPeso(v.deuda)}</td><td>${v.tipo}</td></tr>`);
+        win.document.write(`</tbody></table></body></html>`);
         win.document.close();
         win.print();
     }
     
     function limpiarHistorial() {
-        if (confirm('⚠️ ¿Eliminar TODO el historial de ventas? Esta acción no se puede deshacer.')) {
+        if (confirm('⚠️ ¿Eliminar TODO el historial de ventas?')) {
             ventas = [];
-            // IMPORTANTE: Resetear items de venta actual también
             itemsVenta = [];
             document.getElementById('buyerName').value = '';
             document.getElementById('amountPaid').value = 0;
-            document.getElementById('paymentType').value = 'contado';
-            renderItemsVenta();  // Limpiar la interfaz de items
+            renderItemsVenta();
             renderHistorial();
             renderResumen();
             guardarTodo();
@@ -859,7 +694,6 @@
         }
     }
     
-    // Asignar eventos de impresión y limpieza
     document.getElementById('printMonthBtn').onclick = imprimirMes;
     document.getElementById('printDayBtn').onclick = imprimirDia;
     document.getElementById('clearHistoryBtn').onclick = limpiarHistorial;
@@ -871,23 +705,15 @@
         renderItemsVenta();
         renderHistorial();
         renderResumen();
-        
-        const fechaInput = document.getElementById('saleDate');
-        const mesInput = document.getElementById('printMonth');
-        const diaInput = document.getElementById('printDate');
-        
-        if (fechaInput) fechaInput.value = obtenerFechaActual();
-        if (mesInput) mesInput.value = obtenerMesActual();
-        if (diaInput) diaInput.value = obtenerFechaActual();
-        
-        console.log('App iniciada correctamente - Versión corregida');
+        document.getElementById('saleDate').value = obtenerFechaActual();
+        document.getElementById('printMonth').value = obtenerMesActual();
+        document.getElementById('printDate').value = obtenerFechaActual();
     }
-    
     iniciar();
 </script>
 
 <footer style="text-align:center; font-size:11px; color:gray; margin-top:20px;">
-    ✅ Sistema Anita Maria — Datos locales | Exportar/Importar para compartir | Botón Pagar para deudas | Creado por Monkey 63
+    ✅ Sistema Anita Maria — Datos locales | Exportar/Importar | Botón Pagar | Scroll horizontal en iPhone | Creado por Monkey 63
 </footer>
 
 </body>
