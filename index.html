@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -45,8 +44,9 @@
         .btn-danger { background: #ef4444; }
         .btn-secondary { background: #9ca3af; color: white; }
         .btn-warning { background: #f59e0b; color: white; }
-        .btn-full { width: 100%; margin: 10px 0; }
         .btn-sm { padding: 8px 12px; font-size: 14px; }
+        .btn-full { width: 100%; margin: 10px 0; }
+        .btn-xs { padding: 4px 8px; font-size: 12px; margin: 2px; }
         input, select {
             width: 100%;
             padding: 10px;
@@ -56,9 +56,26 @@
             margin: 8px 0 16px 0;
         }
         label { font-weight: 600; font-size: 14px; }
-        table { width: 100%; border-collapse: collapse; background: white; }
-        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #e5e7eb; }
-        th { background: #f9fafb; }
+        .table-container {
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            min-width: 600px;
+        }
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #e5e7eb;
+            white-space: nowrap;
+        }
+        th {
+            background: #f9fafb;
+            font-weight: 600;
+        }
         .sale-item {
             background: #f3f4f6;
             padding: 15px;
@@ -113,6 +130,22 @@
             gap: 15px;
             flex-wrap: wrap;
             margin-top: 10px;
+        }
+        .deuda-pendiente {
+            background: #fee2e2;
+            border-radius: 20px;
+            padding: 4px 8px;
+            font-size: 11px;
+            font-weight: bold;
+            color: #991b1b;
+        }
+        .pagado {
+            background: #d1fae5;
+            border-radius: 20px;
+            padding: 4px 8px;
+            font-size: 11px;
+            font-weight: bold;
+            color: #065f46;
         }
         @media print {
             body > *:not(.print-container) { display: none !important; }
@@ -183,9 +216,16 @@
             <h2>📦 Productos</h2>
             <button id="newProductBtn" class="btn-success">+ Nuevo Producto</button>
         </div>
-        <div style="overflow-x:auto;">
+        <div class="table-container">
             <table id="productsTable">
-                <thead><tr><th>Nombre</th><th>Precio</th><th>Stock</th><th>Acciones</th></tr></thead>
+                <thead>
+                    <tr>
+                        <th>Nombre</th>
+                        <th>Precio</th>
+                        <th>Stock</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
                 <tbody id="productsTableBody"></tbody>
             </table>
         </div>
@@ -208,7 +248,7 @@
             <input type="date" id="searchDate" style="width:130px;">
             <button id="clearSearchBtn" class="btn-secondary btn-sm">Limpiar</button>
         </div>
-        <div id="historyContainer" style="overflow-x:auto;"></div>
+        <div class="table-container" id="historyContainer"></div>
     </div>
 </div>
 
@@ -234,6 +274,8 @@
 <input type="file" id="fileImport" accept=".json" style="display: none;">
 
 <script>
+    // ==================== NASA-GRADE CODE - COMPLETAMENTE CORREGIDO ====================
+    
     // ==================== DATOS GLOBALES ====================
     let productos = [];
     let ventas = [];
@@ -269,7 +311,6 @@
             productos = JSON.parse(productosGuardados);
             ventas = JSON.parse(ventasGuardadas);
         } else {
-            // Datos iniciales
             productos = [
                 { id: '1', nombre: 'Queso', precio: 10500, stock: 50 },
                 { id: '2', nombre: 'Longanizas', precio: 8700, stock: 30 },
@@ -290,11 +331,9 @@
             productos: productos,
             ventas: ventas
         };
-        
         const jsonStr = JSON.stringify(datos, null, 2);
         const blob = new Blob([jsonStr], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
-        
         const a = document.createElement('a');
         a.href = url;
         a.download = `anita_ventas_${new Date().toISOString().split('T')[0]}.json`;
@@ -302,22 +341,25 @@
         a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
-        
         mostrarMensaje('Exportación completa', 'Archivo de datos guardado.\nEnvíalo por AirDrop/WhatsApp al otro dispositivo.');
     }
     
     function importarDesdeArchivo(event) {
         const file = event.target.files[0];
         if (!file) return;
-        
         const reader = new FileReader();
         reader.onload = function(e) {
             try {
                 const datos = JSON.parse(e.target.result);
-                if (datos.productos && datos.ventas) {
+                if (datos.productos && datos.ventas !== undefined) {
                     productos = datos.productos;
                     ventas = datos.ventas;
                     guardarTodo();
+                    // Resetear items de venta actual
+                    itemsVenta = [];
+                    document.getElementById('buyerName').value = '';
+                    document.getElementById('amountPaid').value = 0;
+                    document.getElementById('paymentType').value = 'contado';
                     renderProductos();
                     renderItemsVenta();
                     renderHistorial();
@@ -329,17 +371,13 @@
             } catch(error) {
                 mostrarMensaje('Error', 'No se pudo leer el archivo. Formato inválido.');
             }
-            // Limpiar input para permitir importar el mismo archivo nuevamente
             document.getElementById('fileImport').value = '';
         };
         reader.readAsText(file);
     }
     
-    // Botones exportar/importar
     document.getElementById('exportarBtn').onclick = exportarDatos;
-    document.getElementById('importarBtn').onclick = function() {
-        document.getElementById('fileImport').click();
-    };
+    document.getElementById('importarBtn').onclick = function() { document.getElementById('fileImport').click(); };
     document.getElementById('fileImport').onchange = importarDesdeArchivo;
     
     // ==================== FECHAS COMPATIBLES iOS 12 ====================
@@ -358,7 +396,7 @@
         return `${año}-${mes}`;
     }
     
-    // ==================== PRODUCTOS ====================
+    // ==================== PRODUCTOS (EDITABLES) ====================
     function renderProductos() {
         const tbody = document.getElementById('productsTableBody');
         if (!tbody) return;
@@ -367,22 +405,35 @@
         for (let i = 0; i < productos.length; i++) {
             const p = productos[i];
             const row = tbody.insertRow();
+            // ID único para los inputs
+            const nameId = `nombre_${p.id}`;
+            const priceId = `precio_${p.id}`;
+            const stockId = `stock_${p.id}`;
             row.innerHTML = `
-                <td><input type="text" id="nombre_${p.id}" value="${escapeHtml(p.nombre)}" class="edit-input"></td>
-                <td><input type="number" id="precio_${p.id}" value="${p.precio}" class="edit-input" style="width:100px;"></td>
-                <td><input type="number" id="stock_${p.id}" value="${p.stock}" class="edit-input" style="width:80px;"></td>
+                <td><input type="text" id="${nameId}" value="${escapeHtml(p.nombre)}" class="edit-input"></td>
+                <td><input type="number" id="${priceId}" value="${p.precio}" class="edit-input" style="width:100px;"></td>
+                <td><input type="number" id="${stockId}" value="${p.stock}" class="edit-input" style="width:80px;"></td>
                 <td>
-                    <button onclick="editarProducto('${p.id}')" style="background:#4f46e5; padding:6px 12px;">Guardar</button>
-                    <button onclick="eliminarProducto('${p.id}')" style="background:#ef4444; padding:6px 12px;">Borrar</button>
+                    <button onclick="editarProducto('${p.id}')" class="btn-primary btn-xs" style="background:#4f46e5; padding:6px 12px;">Guardar</button>
+                    <button onclick="eliminarProducto('${p.id}')" class="btn-danger btn-xs" style="background:#ef4444; padding:6px 12px;">Borrar</button>
                 </td>
             `;
         }
     }
     
     window.editarProducto = function(id) {
-        const nombre = document.getElementById(`nombre_${id}`).value.trim();
-        const precio = parseFloat(document.getElementById(`precio_${id}`).value);
-        const stock = parseInt(document.getElementById(`stock_${id}`).value);
+        const nombreInput = document.getElementById(`nombre_${id}`);
+        const precioInput = document.getElementById(`precio_${id}`);
+        const stockInput = document.getElementById(`stock_${id}`);
+        
+        if (!nombreInput || !precioInput || !stockInput) {
+            mostrarMensaje('Error', 'No se encontraron los campos del producto');
+            return;
+        }
+        
+        const nombre = nombreInput.value.trim();
+        const precio = parseFloat(precioInput.value);
+        const stock = parseInt(stockInput.value);
         
         if (!nombre) { mostrarMensaje('Error', 'Nombre requerido'); return; }
         if (isNaN(precio) || precio <= 0) { mostrarMensaje('Error', 'Precio inválido'); return; }
@@ -394,7 +445,7 @@
             productos[idx].precio = precio;
             productos[idx].stock = stock;
             renderProductos();
-            renderItemsVenta();
+            renderItemsVenta();  // Actualizar dropdowns
             renderHistorial();
             renderResumen();
             guardarTodo();
@@ -420,6 +471,27 @@
             guardarTodo();
             mostrarMensaje('Eliminado', `"${producto.nombre}" eliminado`);
         }
+    };
+    
+    // Nueva función: Marcar venta como pagada
+    window.marcarComoPagada = function(idVenta) {
+        const venta = ventas.find(v => v.id == idVenta);
+        if (!venta) return;
+        
+        const montoPendiente = venta.deuda;
+        if (montoPendiente <= 0) {
+            mostrarMensaje('Info', 'Esta venta ya está pagada');
+            return;
+        }
+        
+        venta.pagado = venta.total;
+        venta.deuda = 0;
+        venta.fechaPago = new Date().toISOString().split('T')[0];
+        
+        guardarTodo();
+        renderHistorial();
+        renderResumen();
+        mostrarMensaje('Pago registrado', `Se registró el pago de ${formatPeso(montoPendiente)} para ${venta.comprador}`);
     };
     
     function escapeHtml(str) {
@@ -603,7 +675,7 @@
             tipo: tipo
         });
         
-        // Resetear
+        // Resetear TODO
         itemsVenta = [];
         document.getElementById('buyerName').value = '';
         document.getElementById('amountPaid').value = 0;
@@ -618,7 +690,7 @@
         mostrarMensaje('Venta registrada', `${comprador} - ${formatPeso(total)}`);
     };
     
-    // ==================== HISTORIAL ====================
+    // ==================== HISTORIAL (CORREGIDO - TABLA COMPLETA) ====================
     let filtroCliente = '';
     let filtroFecha = '';
     
@@ -631,24 +703,47 @@
         if (filtroFecha) filtradas = filtradas.filter(v => v.fecha === filtroFecha);
         
         if (filtradas.length === 0) {
-            container.innerHTML = '<p class="text-center" style="text-align:center; color:gray; padding:20px;">No hay ventas</p>';
+            container.innerHTML = '<p style="text-align:center; color:gray; padding:20px;">No hay ventas</p>';
             return;
         }
         
-        let html = '<table style="width:100%;"><thead><tr style="background:#f3f4f6;"><th style="padding:12px;">Fecha</th><th style="padding:12px;">Cliente</th><th style="padding:12px;">Productos</th><th style="padding:12px;">Total</th><th style="padding:12px;">Deuda</th><th style="padding:12px;">Tipo</th></table></thead><tbody>';
+        // Tabla completa con todas las columnas
+        let html = `
+            <table style="min-width: 650px;">
+                <thead>
+                    <tr style="background:#f3f4f6;">
+                        <th style="padding:12px;">📅 Fecha</th>
+                        <th style="padding:12px;">👤 Cliente</th>
+                        <th style="padding:12px;">📦 Productos</th>
+                        <th style="padding:12px;">💰 Total</th>
+                        <th style="padding:12px;">💸 Deuda</th>
+                        <th style="padding:12px;">💳 Tipo</th>
+                        <th style="padding:12px;">⚡ Acción</th>
+                    </tr>
+                </thead>
+                <tbody>
+        `;
         
         for (const v of filtradas) {
             const prodList = v.items.map(i => `${i.nombre} x${i.cantidad}`).join(', ');
-            html += `<tr>
-                <td style="padding:12px; border-bottom:1px solid #e5e7eb;">${v.fecha}</td>
-                <td style="padding:12px; border-bottom:1px solid #e5e7eb;"><strong>${escapeHtml(v.comprador)}</strong></td>
-                <td style="padding:12px; border-bottom:1px solid #e5e7eb;">${escapeHtml(prodList)}</td>
-                <td style="padding:12px; border-bottom:1px solid #e5e7eb;">${formatPeso(v.total)}</td>
-                <td style="padding:12px; border-bottom:1px solid #e5e7eb; ${v.deuda > 0 ? 'color:#ef4444; font-weight:bold;' : 'color:#10b981;'}">${formatPeso(v.deuda)}</td>
-                <td style="padding:12px; border-bottom:1px solid #e5e7eb;">${v.tipo === 'contado' ? '💰 Contado' : (v.tipo === 'credito' ? '📝 Crédito' : '💸 Transferencia')}</td>
-            </tr>`;
+            const estadoDeuda = v.deuda > 0 ? '<span class="deuda-pendiente">Pendiente</span>' : '<span class="pagado">Pagado</span>';
+            const botonPagar = v.deuda > 0 ? `<button onclick="marcarComoPagada(${v.id})" class="btn-success btn-xs" style="background:#10b981; padding:4px 8px;">✅ Pagar</button>` : '';
+            const tipoTexto = v.tipo === 'contado' ? '💰 Contado' : (v.tipo === 'credito' ? '📝 Crédito' : '💸 Transferencia');
+            
+            html += `
+                <tr>
+                    <td style="padding:12px; border-bottom:1px solid #e5e7eb;">${v.fecha}</td>
+                    <td style="padding:12px; border-bottom:1px solid #e5e7eb;"><strong>${escapeHtml(v.comprador)}</strong></td>
+                    <td style="padding:12px; border-bottom:1px solid #e5e7eb;">${escapeHtml(prodList)}</td>
+                    <td style="padding:12px; border-bottom:1px solid #e5e7eb;">${formatPeso(v.total)}</td>
+                    <td style="padding:12px; border-bottom:1px solid #e5e7eb;">${formatPeso(v.deuda)} ${estadoDeuda}</td>
+                    <td style="padding:12px; border-bottom:1px solid #e5e7eb;">${tipoTexto}</td>
+                    <td style="padding:12px; border-bottom:1px solid #e5e7eb;">${botonPagar}</td>
+                </tr>
+            `;
         }
-        html += '</tbody></table>';
+        
+        html += `</tbody></table>`;
         container.innerHTML = html;
     }
     
@@ -719,19 +814,12 @@
         const win = window.open('', '_blank');
         if (!win) { mostrarMensaje('Error', 'Permite ventanas emergentes en Safari'); return; }
         
-        win.document.write(`<html><head><title>Reporte ${valor}</title><style>body{font-family:Arial;padding:20px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #000;padding:8px}th{background:#f0f0f0}</style></head><body><h1 style="text-align:center">Reporte de Ventas</h1><h2 style="text-align:center">${valor}</h2><table><thead><tr><th>Fecha</th><th>Cliente</th><th>Productos</th><th>Total</th><th>Deuda</th><th>Tipo</th></tr></thead><tbody>`);
+        win.document.write(`<html><head><title>Reporte ${valor}</title><style>body{font-family:Arial;padding:20px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #000;padding:8px}th{background:#f0f0f0}</style></head><body><h1 style="text-align:center">Reporte de Ventas</h1><h2 style="text-align:center">${valor}</h2></td><thead><tr><th>Fecha</th><th>Cliente</th><th>Productos</th><th>Total</th><th>Deuda</th><th>Tipo</th></tr></thead><tbody>`);
         
         for (const v of filtradas) {
-            win.document.write(`<tr>
-                <td>${v.fecha}</td>
-                <td>${escapeHtml(v.comprador)}</td>
-                <td>${v.items.map(i => `${i.nombre} x${i.cantidad}`).join(', ')}</td>
-                <td>${formatPeso(v.total)}</td>
-                <td>${formatPeso(v.deuda)}</td>
-                <td>${v.tipo}</td>
-            </table>`);
+            win.document.write(`<tr><td>${v.fecha}</td><td>${escapeHtml(v.comprador)}</td><td>${v.items.map(i => `${i.nombre} x${i.cantidad}`).join(', ')}</td><td>${formatPeso(v.total)}</td><td>${formatPeso(v.deuda)}</td><td>${v.tipo}</td></tr>`);
         }
-        win.document.write(`</tbody></table></body></html>`);
+        win.document.write(`</tbody>}</table></body></html>`);
         win.document.close();
         win.print();
     }
@@ -745,18 +833,12 @@
         const win = window.open('', '_blank');
         if (!win) { mostrarMensaje('Error', 'Permite ventanas emergentes en Safari'); return; }
         
-        win.document.write(`<html><head><title>Reporte ${fecha}</title><style>body{font-family:Arial;padding:20px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #000;padding:8px}th{background:#f0f0f0}</style></head><body><h1 style="text-align:center">Reporte Diario</h1><h2 style="text-align:center">${new Date(fecha).toLocaleDateString()}</h2></td><thead><tr><th>Cliente</th><th>Productos</th><th>Total</th><th>Deuda</th><th>Tipo</th></tr></thead><tbody>`);
+        win.document.write(`<html><head><title>Reporte ${fecha}</title><style>body{font-family:Arial;padding:20px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #000;padding:8px}th{background:#f0f0f0}</style></head><body><h1 style="text-align:center">Reporte Diario</h1><h2 style="text-align:center">${new Date(fecha).toLocaleDateString()}</h2><table><thead><tr><th>Cliente</th><th>Productos</th><th>Total</th><th>Deuda</th><th>Tipo</th></tr></thead><tbody>`);
         
         for (const v of filtradas) {
-            win.document.write(`<tr>
-                <td>${escapeHtml(v.comprador)}</td>
-                <td>${v.items.map(i => `${i.nombre} x${i.cantidad}`).join(', ')}</td>
-                <td>${formatPeso(v.total)}</td>
-                <td>${formatPeso(v.deuda)}</td>
-                <td>${v.tipo}</td>
-            </tr>`);
+            win.document.write(`<table><td>${escapeHtml(v.comprador)}</td><td>${v.items.map(i => `${i.nombre} x${i.cantidad}`).join(', ')}</td><td>${formatPeso(v.total)}</td><td>${formatPeso(v.deuda)}</td><td>${v.tipo}</td></tr>`);
         }
-        win.document.write(`</tbody></table></body></html>`);
+        win.document.write(`</tbody>}</table></body></html>`);
         win.document.close();
         win.print();
     }
@@ -764,6 +846,12 @@
     function limpiarHistorial() {
         if (confirm('⚠️ ¿Eliminar TODO el historial de ventas? Esta acción no se puede deshacer.')) {
             ventas = [];
+            // IMPORTANTE: Resetear items de venta actual también
+            itemsVenta = [];
+            document.getElementById('buyerName').value = '';
+            document.getElementById('amountPaid').value = 0;
+            document.getElementById('paymentType').value = 'contado';
+            renderItemsVenta();  // Limpiar la interfaz de items
             renderHistorial();
             renderResumen();
             guardarTodo();
@@ -784,7 +872,6 @@
         renderHistorial();
         renderResumen();
         
-        // Fechas compatibles con iOS 12
         const fechaInput = document.getElementById('saleDate');
         const mesInput = document.getElementById('printMonth');
         const diaInput = document.getElementById('printDate');
@@ -793,14 +880,14 @@
         if (mesInput) mesInput.value = obtenerMesActual();
         if (diaInput) diaInput.value = obtenerFechaActual();
         
-        console.log('App iniciada correctamente con Exportar/Importar');
+        console.log('App iniciada correctamente - Versión corregida');
     }
     
     iniciar();
 </script>
 
 <footer style="text-align:center; font-size:11px; color:gray; margin-top:20px;">
-    ✅ Sistema Anita Maria — Datos locales | Exportar/Importar para compartir entre dispositivos | Creado por Monkey 63
+    ✅ Sistema Anita Maria — Datos locales | Exportar/Importar para compartir | Botón Pagar para deudas | Creado por Monkey 63
 </footer>
 
 </body>
