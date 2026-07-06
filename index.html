@@ -132,6 +132,9 @@
             background: rgba(0,0,0,0.5);
             z-index: 1000;
         }
+        #messageModal {
+            z-index: 2000;
+        }
         .modal-content {
             background: white;
             margin: 100px auto;
@@ -285,8 +288,35 @@
         <button id="cancelProductBtn" class="btn-secondary">Cancelar</button>
     </div>
 </div>
+<div id="editSaleModal" class="modal">
+    <div class="modal-content" style="max-width:420px; text-align:left;">
+        <h3 style="text-align:center;">✏️ Editar Venta</h3>
+        <label>👤 Nombre del Comprador *</label>
+        <input type="text" id="editBuyerName">
+        <label>📅 Fecha</label>
+        <input type="date" id="editSaleDate">
+        <div id="editItemsContainer"></div>
+        <button id="editAddItemBtn" class="btn-full btn-secondary">+ Añadir Producto</button>
+        <label>💳 Tipo de Venta</label>
+        <select id="editPaymentType">
+            <option value="contado">Contado</option>
+            <option value="credito">Crédito</option>
+            <option value="transferencia">Transferencia</option>
+        </select>
+        <div style="background:#f3f4f6; padding:15px; border-radius:12px; margin:15px 0;">
+            <div class="flex-between"><strong>💰 Total Venta:</strong> <span id="editTotalDisplay" style="font-size:22px; font-weight:bold; color:#4f46e5;">$0</span></div>
+            <label>💵 Monto Pagado</label>
+            <input type="number" id="editAmountPaid" step="0.01">
+        </div>
+        <div class="text-center">
+            <button id="saveEditSaleBtn">Guardar Cambios</button>
+            <button id="cancelEditSaleBtn" class="btn-secondary">Cancelar</button>
+        </div>
+    </div>
+</div>
 
 <input type="file" id="fileImport" accept=".json" style="display: none;">
+
 
 <script>
     // ==================== DATOS GLOBALES ====================
@@ -460,6 +490,166 @@
         mostrarMensaje('Pago registrado', `Se registró el pago de ${formatPeso(venta.total)} para ${venta.comprador}`);
     };
     
+    window.anularVenta = function(idVenta) {
+        const venta = ventas.find(v => v.id == idVenta);
+        if (!venta) return;
+        if (!confirm(`¿Anular la venta de "${venta.comprador}" por ${formatPeso(venta.total)}? El stock de los productos se devolverá al inventario. Esta acción no se puede deshacer.`)) return;
+        for (const item of venta.items) {
+            const prod = productos.find(p => p.id === item.productId);
+            if (prod) prod.stock += item.cantidad;
+        }
+        ventas = ventas.filter(v => v.id != idVenta);
+        guardarTodo();
+        renderProductos();
+        renderItemsVenta();
+        renderHistorial();
+        renderResumen();
+        mostrarMensaje('Venta anulada', `Se anuló la venta de ${venta.comprador} y se repuso el stock`);
+    };
+    
+    // ==================== EDITAR VENTA ====================
+    let itemsEdicion = [];
+    let ventaEditandoId = null;
+    
+    window.editarVenta = function(idVenta) {
+        const venta = ventas.find(v => v.id == idVenta);
+        if (!venta) return;
+        ventaEditandoId = idVenta;
+        // Devuelve temporalmente el stock de esta venta para poder reasignar cantidades con libertad
+        for (const item of venta.items) {
+            const prod = productos.find(p => p.id === item.productId);
+            if (prod) prod.stock += item.cantidad;
+        }
+        document.getElementById('editBuyerName').value = venta.comprador;
+        document.getElementById('editSaleDate').value = venta.fecha;
+        document.getElementById('editPaymentType').value = venta.tipo;
+        document.getElementById('editAmountPaid').value = venta.pagado;
+        itemsEdicion = venta.items.map(i => ({ productId: i.productId, quantity: i.cantidad }));
+        renderItemsEdicion();
+        renderProductos();
+        document.getElementById('editSaleModal').style.display = 'block';
+    };
+    
+    function renderItemsEdicion() {
+        const container = document.getElementById('editItemsContainer');
+        if (!container) return;
+        container.innerHTML = '<strong>📦 Productos</strong>';
+        if (itemsEdicion.length === 0) {
+            container.innerHTML += '<p style="color:gray; padding:10px;">No hay productos. Presiona "+ Añadir Producto"</p>';
+            actualizarTotalEdicion();
+            return;
+        }
+        for (let i = 0; i < itemsEdicion.length; i++) {
+            const item = itemsEdicion[i];
+            const div = document.createElement('div');
+            div.className = 'sale-item';
+            div.innerHTML = `
+                <select class="edit-item-select" data-idx="${i}">
+                    <option value="">Seleccionar</option>
+                    ${productos.map(p => `<option value="${p.id}" ${p.id === item.productId ? 'selected' : ''}>${escapeHtml(p.nombre)} (stock: ${p.stock})</option>`).join('')}
+                </select>
+                <input type="number" class="edit-item-qty" data-idx="${i}" value="${item.quantity || 1}" min="1" style="width:80px;">
+                <button class="edit-remove-item" data-idx="${i}">✖</button>
+            `;
+            container.appendChild(div);
+        }
+        actualizarTotalEdicion();
+        asignarEventosItemsEdicion();
+    }
+    
+    function asignarEventosItemsEdicion() {
+        document.querySelectorAll('.edit-item-select').forEach(sel => {
+            sel.onchange = function() { const idx = parseInt(this.dataset.idx); if (!isNaN(idx) && itemsEdicion[idx]) { itemsEdicion[idx].productId = this.value; actualizarTotalEdicion(); } };
+        });
+        document.querySelectorAll('.edit-item-qty').forEach(inp => {
+            inp.onchange = function() { const idx = parseInt(this.dataset.idx); let qty = parseInt(this.value); if (isNaN(qty) || qty < 1) qty = 1; if (!isNaN(idx) && itemsEdicion[idx]) { itemsEdicion[idx].quantity = qty; this.value = qty; actualizarTotalEdicion(); } };
+        });
+        document.querySelectorAll('.edit-remove-item').forEach(btn => {
+            btn.onclick = function() { const idx = parseInt(this.dataset.idx); if (!isNaN(idx)) { itemsEdicion.splice(idx, 1); renderItemsEdicion(); } };
+        });
+    }
+    
+    function actualizarTotalEdicion() {
+        let total = 0;
+        for (const item of itemsEdicion) {
+            const prod = productos.find(p => p.id === item.productId);
+            if (prod) total += prod.precio * (item.quantity || 0);
+        }
+        const el = document.getElementById('editTotalDisplay');
+        if (el) el.innerText = formatPeso(total);
+        return total;
+    }
+    
+    document.getElementById('editAddItemBtn').onclick = () => {
+        if (productos.length === 0) { mostrarMensaje('Error', 'No hay productos'); return; }
+        itemsEdicion.push({ productId: productos[0].id, quantity: 1 });
+        renderItemsEdicion();
+    };
+    
+    document.getElementById('editPaymentType').onchange = function() { if (this.value === 'credito') document.getElementById('editAmountPaid').value = 0; };
+    
+    document.getElementById('saveEditSaleBtn').onclick = () => {
+        const venta = ventas.find(v => v.id == ventaEditandoId);
+        if (!venta) return;
+        const comprador = document.getElementById('editBuyerName').value.trim();
+        if (!comprador) { mostrarMensaje('Error', 'Nombre del comprador requerido'); return; }
+        if (itemsEdicion.length === 0) { mostrarMensaje('Error', 'Agregue al menos un producto'); return; }
+        const fecha = document.getElementById('editSaleDate').value || venta.fecha;
+        let total = 0;
+        const itemsValidos = [];
+        for (const item of itemsEdicion) {
+            if (!item.productId) { mostrarMensaje('Error', 'Seleccione un producto'); return; }
+            const prod = productos.find(p => p.id === item.productId);
+            if (!prod) { mostrarMensaje('Error', 'Producto no encontrado'); return; }
+            const cant = item.quantity || 1;
+            if (prod.stock < cant) { mostrarMensaje('Stock insuficiente', `${prod.nombre}: solo quedan ${prod.stock}`); return; }
+            total += prod.precio * cant;
+            itemsValidos.push({ productId: prod.id, nombre: prod.nombre, precio: prod.precio, cantidad: cant });
+        }
+        let pagado = parseFloat(document.getElementById('editAmountPaid').value) || 0;
+        const tipo = document.getElementById('editPaymentType').value;
+        if (tipo === 'credito') pagado = 0;
+        if (pagado > total) { mostrarMensaje('Error', 'El monto pagado no puede ser mayor al total'); return; }
+        // Descuenta el nuevo stock (el stock original ya fue devuelto al abrir el editor)
+        for (const item of itemsValidos) {
+            const prod = productos.find(p => p.id === item.productId);
+            if (prod) prod.stock -= item.cantidad;
+        }
+        venta.comprador = comprador;
+        venta.fecha = fecha;
+        venta.items = itemsValidos;
+        venta.total = total;
+        venta.pagado = pagado;
+        venta.deuda = total - pagado;
+        venta.tipo = tipo;
+        ventaEditandoId = null;
+        itemsEdicion = [];
+        guardarTodo();
+        renderProductos();
+        renderItemsVenta();
+        renderHistorial();
+        renderResumen();
+        cerrarModal('editSaleModal');
+        mostrarMensaje('Venta actualizada', `Se actualizó la venta de ${comprador}`);
+    };
+    
+    document.getElementById('cancelEditSaleBtn').onclick = () => {
+        // Revierte el stock temporal que se devolvió al abrir el editor
+        if (ventaEditandoId != null) {
+            const venta = ventas.find(v => v.id == ventaEditandoId);
+            if (venta) {
+                for (const item of venta.items) {
+                    const prod = productos.find(p => p.id === item.productId);
+                    if (prod) prod.stock -= item.cantidad;
+                }
+            }
+        }
+        ventaEditandoId = null;
+        itemsEdicion = [];
+        renderProductos();
+        cerrarModal('editSaleModal');
+    };
+    
     function escapeHtml(str) { if (!str) return ''; return str.replace(/[&<>]/g, m => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;' }[m])); }
     
     // Nuevo producto
@@ -600,6 +790,8 @@
             const prodList = v.items.map(i => `${i.nombre} x${i.cantidad}`).join(', ');
             const estadoDeuda = v.deuda > 0 ? '<span class="deuda-pendiente">Pendiente</span>' : '<span class="pagado">Pagado</span>';
             const botonPagar = v.deuda > 0 ? `<button onclick="marcarComoPagada(${v.id})" class="btn-xs" style="background:#10b981; padding:4px 8px;">✅ Pagar</button>` : '';
+            const botonAnular = `<button onclick="anularVenta(${v.id})" class="btn-xs" style="background:#ef4444; padding:4px 8px;">🚫 Anular</button>`;
+            const botonEditar = `<button onclick="editarVenta(${v.id})" class="btn-xs" style="background:#4f46e5; padding:4px 8px;">✏️ Editar</button>`;
             const tipoTexto = v.tipo === 'contado' ? '💰 Contado' : (v.tipo === 'credito' ? '📝 Crédito' : '💸 Transferencia');
             html += `<tr>
                 <td>${v.fecha}</td>
@@ -608,10 +800,10 @@
                 <td>${formatPeso(v.total)}</td>
                 <td>${formatPeso(v.deuda)} ${estadoDeuda}</td>
                 <td>${tipoTexto}</td>
-                <td>${botonPagar}</td>
+                <td>${botonPagar}${botonAnular}${botonEditar}</td>
             </tr>`;
         }
-        html += `</tbody>很多人`;
+        html += `</tbody>`;
         container.innerHTML = html;
     }
     
