@@ -56,29 +56,32 @@
             margin: 8px 0 16px 0;
         }
         label { font-weight: 600; font-size: 14px; }
+        
+        /* ========== CORRECCIÓN PARA iPhone ========== */
         .table-container {
             overflow-x: auto;
             -webkit-overflow-scrolling: touch;
             width: 100%;
         }
         .historial-table {
-            min-width: 800px;
+            min-width: 700px;
             width: 100%;
             border-collapse: collapse;
             background: white;
         }
         .historial-table th,
         .historial-table td {
-            padding: 10px 8px;
+            padding: 12px;
             text-align: left;
             border-bottom: 1px solid #e5e7eb;
             white-space: nowrap;
-            font-size: 14px;
         }
         .historial-table th {
             background: #f9fafb;
             font-weight: 600;
         }
+        /* ========================================== */
+        
         .products-table {
             width: 100%;
             border-collapse: collapse;
@@ -165,15 +168,6 @@
             font-size: 11px;
             font-weight: bold;
             color: #065f46;
-            display: inline-block;
-        }
-        .anulado {
-            background: #e5e7eb;
-            border-radius: 20px;
-            padding: 4px 8px;
-            font-size: 11px;
-            font-weight: bold;
-            color: #6b7280;
             display: inline-block;
         }
         @media print {
@@ -284,7 +278,6 @@
         <button id="closeMsgBtn">Cerrar</button>
     </div>
 </div>
-
 <div id="productModal" class="modal">
     <div class="modal-content">
         <h3>Nuevo Producto</h3>
@@ -295,8 +288,7 @@
         <button id="cancelProductBtn" class="btn-secondary">Cancelar</button>
     </div>
 </div>
-
-<div id="editSaleModal" class="modal" style="z-index:1500;">
+<div id="editSaleModal" class="modal">
     <div class="modal-content" style="max-width:420px; text-align:left;">
         <h3 style="text-align:center;">✏️ Editar Venta</h3>
         <label>👤 Nombre del Comprador *</label>
@@ -323,35 +315,17 @@
     </div>
 </div>
 
-<!-- Modal de Confirmación (genérico) -->
-<div id="confirmModal" class="modal" style="z-index:3000;">
-    <div class="modal-content">
-        <h3 id="confirmTitle">Confirmar</h3>
-        <p id="confirmMessage"></p>
-        <div style="display:flex; justify-content:center; gap:10px; margin-top:15px;">
-            <button id="confirmYes" class="btn-success">Sí</button>
-            <button id="confirmNo" class="btn-secondary">No</button>
-        </div>
-    </div>
-</div>
-
 <input type="file" id="fileImport" accept=".json" style="display: none;">
+
 
 <script>
     // ==================== DATOS GLOBALES ====================
     let productos = [];
     let ventas = [];
     let itemsVenta = [];
-    let estadoEdicion = {
-        activo: false,
-        idVenta: null,
-        itemsOriginales: [],
-        stockDevuelto: false
-    };
     
     const formatPeso = (n) => '$' + (n || 0).toLocaleString('es-CL');
     
-    // ==================== FUNCIONES DE MODALES ====================
     function mostrarMensaje(titulo, texto) {
         const modal = document.getElementById('messageModal');
         if (!modal) return;
@@ -363,18 +337,6 @@
     function cerrarModal(id) {
         const modal = document.getElementById(id);
         if (modal) modal.style.display = 'none';
-    }
-    
-    // ==================== CONFIRMACIÓN GENÉRICA ====================
-    function confirmarAccion(titulo, mensaje) {
-        return new Promise((resolve) => {
-            const modal = document.getElementById('confirmModal');
-            document.getElementById('confirmTitle').innerText = titulo;
-            document.getElementById('confirmMessage').innerHTML = mensaje.replace(/\n/g, '<br>');
-            modal.style.display = 'block';
-            document.getElementById('confirmYes').onclick = () => { modal.style.display = 'none'; resolve(true); };
-            document.getElementById('confirmNo').onclick = () => { modal.style.display = 'none'; resolve(false); };
-        });
     }
     
     // ==================== ALMACENAMIENTO ====================
@@ -404,18 +366,43 @@
     }
     
     // ==================== EXPORTAR/IMPORTAR ====================
-    function exportarDatos() {
+    async function exportarDatos() {
         const datos = { version: '1.0', fechaExportacion: new Date().toISOString(), productos: productos, ventas: ventas };
-        const blob = new Blob([JSON.stringify(datos, null, 2)], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `anita_ventas_${new Date().toISOString().split('T')[0]}.json`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-        mostrarMensaje('Exportación completa', 'Archivo guardado. Envíalo al otro dispositivo.');
+        const json = JSON.stringify(datos, null, 2);
+        const filename = `anita_ventas_${new Date().toISOString().split('T')[0]}.json`;
+        const blob = new Blob([json], { type: 'application/json' });
+
+        // Intenta primero abrir el panel de compartir nativo (AirDrop, Mensajes, Correo, etc.)
+        try {
+            const file = new File([blob], filename, { type: 'application/json' });
+            if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                await navigator.share({
+                    files: [file],
+                    title: 'Backup de Ventas - Anita',
+                    text: 'Respaldo de datos de Anita'
+                });
+                mostrarMensaje('Exportación completa', 'El archivo se envió correctamente.');
+                return;
+            }
+        } catch (err) {
+            // Si el usuario cancela el panel de compartir, no mostramos error ni seguimos con la descarga
+            if (err && err.name === 'AbortError') return;
+        }
+
+        // Respaldo: descarga tradicional para dispositivos que no soportan compartir archivos
+        try {
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            mostrarMensaje('Exportación completa', 'Archivo guardado. Si no lo encuentras, revisa la carpeta de Descargas.');
+        } catch (err) {
+            mostrarMensaje('Error al exportar', 'Este dispositivo no pudo generar el archivo.');
+        }
     }
     
     function importarDesdeArchivo(event) {
@@ -515,16 +502,10 @@
         }
     };
     
-    // ==================== PAGAR DEUDA ====================
-    window.marcarComoPagada = async function(idVenta) {
+    window.marcarComoPagada = function(idVenta) {
         const venta = ventas.find(v => v.id == idVenta);
         if (!venta) return;
         if (venta.deuda <= 0) { mostrarMensaje('Info', 'Esta venta ya está pagada'); return; }
-        const confirmar = await confirmarAccion(
-            'Confirmar pago',
-            `¿Registrar el pago de ${formatPeso(venta.deuda)} para "${venta.comprador}"?`
-        );
-        if (!confirmar) return;
         venta.pagado = venta.total;
         venta.deuda = 0;
         venta.fechaPago = new Date().toISOString().split('T')[0];
@@ -534,69 +515,43 @@
         mostrarMensaje('Pago registrado', `Se registró el pago de ${formatPeso(venta.total)} para ${venta.comprador}`);
     };
     
-    // ==================== ANULAR VENTA (segura) ====================
-    window.anularVenta = async function(idVenta) {
+    window.anularVenta = function(idVenta) {
         const venta = ventas.find(v => v.id == idVenta);
         if (!venta) return;
-        if (venta.estado === 'ANULADA') {
-            mostrarMensaje('Info', 'Esta venta ya está anulada');
-            return;
-        }
-        const confirmar = await confirmarAccion(
-            '⚠️ Anular venta',
-            `¿Está seguro de anular la venta a "${venta.comprador}" por ${formatPeso(venta.total)}?\n\n✔ Se eliminará del historial activo.\n✔ El stock volverá al inventario.\n✔ La venta se marcará como ANULADA.\n\nEsta acción no se puede deshacer.`
-        );
-        if (!confirmar) return;
-        // Restaurar stock
+        if (!confirm(`¿Anular la venta de "${venta.comprador}" por ${formatPeso(venta.total)}? El stock de los productos se devolverá al inventario. Esta acción no se puede deshacer.`)) return;
         for (const item of venta.items) {
             const prod = productos.find(p => p.id === item.productId);
             if (prod) prod.stock += item.cantidad;
         }
-        // Marcar como anulada (no se elimina)
-        venta.estado = 'ANULADA';
-        venta.fechaAnulacion = new Date().toISOString().split('T')[0];
+        ventas = ventas.filter(v => v.id != idVenta);
         guardarTodo();
         renderProductos();
         renderItemsVenta();
         renderHistorial();
         renderResumen();
-        mostrarMensaje('Venta anulada', `La venta a "${venta.comprador}" fue anulada y el stock restaurado.`);
+        mostrarMensaje('Venta anulada', `Se anuló la venta de ${venta.comprador} y se repuso el stock`);
     };
     
-    // ==================== EDITAR VENTA (con confirmación y manejo seguro de stock) ====================
+    // ==================== EDITAR VENTA ====================
     let itemsEdicion = [];
     let ventaEditandoId = null;
     
-    window.editarVenta = async function(idVenta) {
+    window.editarVenta = function(idVenta) {
         const venta = ventas.find(v => v.id == idVenta);
         if (!venta) return;
-        if (venta.estado === 'ANULADA') {
-            mostrarMensaje('Info', 'No se puede editar una venta anulada');
-            return;
-        }
-        // Cerrar cualquier edición previa sin guardar
-        if (ventaEditandoId !== null) {
-            await cancelarEdicion();
-        }
         ventaEditandoId = idVenta;
-        // Guardar items originales para poder restaurar stock si se cancela
-        estadoEdicion.activo = true;
-        estadoEdicion.idVenta = idVenta;
-        estadoEdicion.itemsOriginales = venta.items.map(i => ({ ...i }));
-        // Retirar temporalmente el stock de los productos de la venta (para que al editar no afecte al stock disponible)
+        // Devuelve temporalmente el stock de esta venta para poder reasignar cantidades con libertad
         for (const item of venta.items) {
             const prod = productos.find(p => p.id === item.productId);
-            if (prod) prod.stock += item.cantidad; // lo devolvemos para que el usuario pueda reasignar libremente
+            if (prod) prod.stock += item.cantidad;
         }
-        estadoEdicion.stockDevuelto = true;
-        // Cargar datos en el modal
         document.getElementById('editBuyerName').value = venta.comprador;
         document.getElementById('editSaleDate').value = venta.fecha;
-        document.getElementById('editPaymentType').value = venta.tipo || 'contado';
-        document.getElementById('editAmountPaid').value = venta.pagado || 0;
+        document.getElementById('editPaymentType').value = venta.tipo;
+        document.getElementById('editAmountPaid').value = venta.pagado;
         itemsEdicion = venta.items.map(i => ({ productId: i.productId, quantity: i.cantidad }));
         renderItemsEdicion();
-        renderProductos(); // actualizar stock visual
+        renderProductos();
         document.getElementById('editSaleModal').style.display = 'block';
     };
     
@@ -658,16 +613,9 @@
     
     document.getElementById('editPaymentType').onchange = function() { if (this.value === 'credito') document.getElementById('editAmountPaid').value = 0; };
     
-    document.getElementById('saveEditSaleBtn').onclick = async function() {
-        // Confirmación antes de guardar
-        const confirmar = await confirmarAccion(
-            'Guardar cambios',
-            '¿Desea guardar los cambios de esta venta?'
-        );
-        if (!confirmar) return;
-        
+    document.getElementById('saveEditSaleBtn').onclick = () => {
         const venta = ventas.find(v => v.id == ventaEditandoId);
-        if (!venta) { mostrarMensaje('Error', 'Venta no encontrada'); return; }
+        if (!venta) return;
         const comprador = document.getElementById('editBuyerName').value.trim();
         if (!comprador) { mostrarMensaje('Error', 'Nombre del comprador requerido'); return; }
         if (itemsEdicion.length === 0) { mostrarMensaje('Error', 'Agregue al menos un producto'); return; }
@@ -687,12 +635,11 @@
         const tipo = document.getElementById('editPaymentType').value;
         if (tipo === 'credito') pagado = 0;
         if (pagado > total) { mostrarMensaje('Error', 'El monto pagado no puede ser mayor al total'); return; }
-        // Descontar el nuevo stock
+        // Descuenta el nuevo stock (el stock original ya fue devuelto al abrir el editor)
         for (const item of itemsValidos) {
             const prod = productos.find(p => p.id === item.productId);
             if (prod) prod.stock -= item.cantidad;
         }
-        // Actualizar la venta
         venta.comprador = comprador;
         venta.fecha = fecha;
         venta.items = itemsValidos;
@@ -700,11 +647,6 @@
         venta.pagado = pagado;
         venta.deuda = total - pagado;
         venta.tipo = tipo;
-        // Limpiar estado de edición
-        estadoEdicion.activo = false;
-        estadoEdicion.idVenta = null;
-        estadoEdicion.itemsOriginales = [];
-        estadoEdicion.stockDevuelto = false;
         ventaEditandoId = null;
         itemsEdicion = [];
         guardarTodo();
@@ -716,35 +658,26 @@
         mostrarMensaje('Venta actualizada', `Se actualizó la venta de ${comprador}`);
     };
     
-    document.getElementById('cancelEditSaleBtn').onclick = async function() {
-        await cancelarEdicion();
-    };
-    
-    async function cancelarEdicion() {
-        if (ventaEditandoId !== null && estadoEdicion.stockDevuelto) {
-            // Revertir el stock devuelto (volver a descontar)
+    document.getElementById('cancelEditSaleBtn').onclick = () => {
+        // Revierte el stock temporal que se devolvió al abrir el editor
+        if (ventaEditandoId != null) {
             const venta = ventas.find(v => v.id == ventaEditandoId);
             if (venta) {
-                for (const item of estadoEdicion.itemsOriginales) {
+                for (const item of venta.items) {
                     const prod = productos.find(p => p.id === item.productId);
                     if (prod) prod.stock -= item.cantidad;
                 }
             }
-            // Restaurar stock a como estaba antes de editar
         }
-        estadoEdicion.activo = false;
-        estadoEdicion.idVenta = null;
-        estadoEdicion.itemsOriginales = [];
-        estadoEdicion.stockDevuelto = false;
         ventaEditandoId = null;
         itemsEdicion = [];
         renderProductos();
         cerrarModal('editSaleModal');
-    }
+    };
     
     function escapeHtml(str) { if (!str) return ''; return str.replace(/[&<>]/g, m => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;' }[m])); }
     
-    // ==================== NUEVO PRODUCTO ====================
+    // Nuevo producto
     document.getElementById('newProductBtn').onclick = () => {
         document.getElementById('newProdName').value = '';
         document.getElementById('newProdPrice').value = '';
@@ -850,7 +783,7 @@
         if (pagado > total) { document.getElementById('errorMsg').style.display = 'block'; return; }
         document.getElementById('errorMsg').style.display = 'none';
         for (const item of itemsValidos) { const prod = productos.find(p => p.id === item.productId); if (prod) prod.stock -= item.cantidad; }
-        ventas.push({ id: Date.now(), comprador, fecha, items: itemsValidos, total, pagado, deuda: total - pagado, tipo, estado: 'ACTIVA' });
+        ventas.push({ id: Date.now(), comprador, fecha, items: itemsValidos, total, pagado, deuda: total - pagado, tipo });
         itemsVenta = [];
         document.getElementById('buyerName').value = '';
         document.getElementById('amountPaid').value = 0;
@@ -863,37 +796,27 @@
         mostrarMensaje('Venta registrada', `${comprador} - ${formatPeso(total)}`);
     };
     
-    // ==================== HISTORIAL ====================
+    // ==================== HISTORIAL (CORREGIDO) ====================
     let filtroCliente = '', filtroFecha = '';
     
     function renderHistorial() {
         const container = document.getElementById('historyContainer');
         if (!container) return;
-        let filtradas = ventas.filter(v => v.estado !== 'ANULADA'); // no mostrar anuladas en el historial activo
+        let filtradas = [...ventas];
         if (filtroCliente) filtradas = filtradas.filter(v => v.comprador.toLowerCase().includes(filtroCliente.toLowerCase()));
         if (filtroFecha) filtradas = filtradas.filter(v => v.fecha === filtroFecha);
-        if (filtradas.length === 0) {
-            container.innerHTML = '<p style="text-align:center; color:gray; padding:20px;">No hay ventas activas</p>';
-            return;
-        }
+        if (filtradas.length === 0) { container.innerHTML = '<p style="text-align:center; color:gray; padding:20px;">No hay ventas</p>'; return; }
+        
         let html = `<table class="historial-table">
             <thead><tr>
-                <th>📅 Fecha</th>
-                <th>👤 Cliente</th>
-                <th>📦 Productos</th>
-                <th>💰 Total</th>
-                <th>💸 Deuda</th>
-                <th>💳 Tipo</th>
-                <th>⚡ Acciones</th>
+                <th>📅 Fecha</th><th>👤 Cliente</th><th>📦 Productos</th><th>💰 Total</th><th>💸 Deuda</th><th>💳 Tipo</th><th>⚡ Acción</th>
             </tr></thead><tbody>`;
         for (const v of filtradas) {
             const prodList = v.items.map(i => `${i.nombre} x${i.cantidad}`).join(', ');
             const estadoDeuda = v.deuda > 0 ? '<span class="deuda-pendiente">Pendiente</span>' : '<span class="pagado">Pagado</span>';
-            const botones = `
-                <button onclick="editarVenta(${v.id})" class="btn-xs" style="background:#4f46e5; padding:4px 8px;">✏️ Editar</button>
-                <button onclick="anularVenta(${v.id})" class="btn-xs" style="background:#ef4444; padding:4px 8px;">🚫 Anular</button>
-                ${v.deuda > 0 ? `<button onclick="marcarComoPagada(${v.id})" class="btn-xs" style="background:#10b981; padding:4px 8px;">✅ Pagar</button>` : ''}
-            `;
+            const botonPagar = v.deuda > 0 ? `<button onclick="marcarComoPagada(${v.id})" class="btn-xs" style="background:#10b981; padding:4px 8px;">✅ Pagar</button>` : '';
+            const botonAnular = `<button onclick="anularVenta(${v.id})" class="btn-xs" style="background:#ef4444; padding:4px 8px;">🚫 Anular</button>`;
+            const botonEditar = `<button onclick="editarVenta(${v.id})" class="btn-xs" style="background:#4f46e5; padding:4px 8px;">✏️ Editar</button>`;
             const tipoTexto = v.tipo === 'contado' ? '💰 Contado' : (v.tipo === 'credito' ? '📝 Crédito' : '💸 Transferencia');
             html += `<tr>
                 <td>${v.fecha}</td>
@@ -902,10 +825,10 @@
                 <td>${formatPeso(v.total)}</td>
                 <td>${formatPeso(v.deuda)} ${estadoDeuda}</td>
                 <td>${tipoTexto}</td>
-                <td>${botones}</td>
+                <td>${botonPagar}${botonAnular}${botonEditar}</td>
             </tr>`;
         }
-        html += `</tbody></table>`;
+        html += `</tbody>`;
         container.innerHTML = html;
     }
     
@@ -921,10 +844,7 @@
     // ==================== RESUMEN ====================
     function renderResumen() {
         let totalGeneral = 0;
-        for (const v of ventas) {
-            if (v.estado === 'ANULADA') continue;
-            totalGeneral += v.total;
-        }
+        for (const v of ventas) totalGeneral += v.total;
         document.getElementById('totalSales').innerText = formatPeso(totalGeneral);
         
         const ahora = new Date();
@@ -932,7 +852,6 @@
         const mesActual = ahora.getMonth() + 1;
         let conteoMes = 0, contadoMes = 0, creditoMes = 0, transferenciaMes = 0;
         for (const v of ventas) {
-            if (v.estado === 'ANULADA') continue;
             if (!v.fecha) continue;
             const [a, m] = v.fecha.split('-');
             if (parseInt(a) === añoActual && parseInt(m) === mesActual) {
@@ -953,8 +872,8 @@
         const valor = document.getElementById('printMonth').value;
         if (!valor) { mostrarMensaje('Error', 'Seleccione un mes'); return; }
         const [año, mes] = valor.split('-').map(Number);
-        const filtradas = ventas.filter(v => { if (!v.fecha || v.estado === 'ANULADA') return false; const [a, m] = v.fecha.split('-'); return parseInt(a) === año && parseInt(m) === mes; });
-        if (filtradas.length === 0) { mostrarMensaje('Sin datos', `No hay ventas activas en ${valor}`); return; }
+        const filtradas = ventas.filter(v => { if (!v.fecha) return false; const [a, m] = v.fecha.split('-'); return parseInt(a) === año && parseInt(m) === mes; });
+        if (filtradas.length === 0) { mostrarMensaje('Sin datos', `No hay ventas en ${valor}`); return; }
         const win = window.open('', '_blank');
         if (!win) { mostrarMensaje('Error', 'Permite ventanas emergentes en Safari'); return; }
         win.document.write(`<html><head><title>Reporte ${valor}</title><style>body{font-family:Arial;padding:20px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #000;padding:8px}th{background:#f0f0f0}</style></head><body><h1 style="text-align:center">Reporte de Ventas</h1><h2 style="text-align:center">${valor}</h2><table><thead><tr><th>Fecha</th><th>Cliente</th><th>Productos</th><th>Total</th><th>Deuda</th><th>Tipo</th></tr></thead><tbody>`);
@@ -967,8 +886,8 @@
     function imprimirDia() {
         const fecha = document.getElementById('printDate').value;
         if (!fecha) { mostrarMensaje('Error', 'Seleccione una fecha'); return; }
-        const filtradas = ventas.filter(v => v.fecha === fecha && v.estado !== 'ANULADA');
-        if (filtradas.length === 0) { mostrarMensaje('Sin datos', `No hay ventas activas el ${fecha}`); return; }
+        const filtradas = ventas.filter(v => v.fecha === fecha);
+        if (filtradas.length === 0) { mostrarMensaje('Sin datos', `No hay ventas el ${fecha}`); return; }
         const win = window.open('', '_blank');
         if (!win) { mostrarMensaje('Error', 'Permite ventanas emergentes en Safari'); return; }
         win.document.write(`<html><head><title>Reporte ${fecha}</title><style>body{font-family:Arial;padding:20px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #000;padding:8px}th{background:#f0f0f0}</style></head><body><h1 style="text-align:center">Reporte Diario</h1><h2 style="text-align:center">${new Date(fecha).toLocaleDateString()}</h2><table><thead><tr><th>Cliente</th><th>Productos</th><th>Total</th><th>Deuda</th><th>Tipo</th></tr></thead><tbody>`);
@@ -979,7 +898,7 @@
     }
     
     function limpiarHistorial() {
-        if (confirm('⚠️ ¿Eliminar TODO el historial de ventas? Esta acción no se puede deshacer.')) {
+        if (confirm('⚠️ ¿Eliminar TODO el historial de ventas?')) {
             ventas = [];
             itemsVenta = [];
             document.getElementById('buyerName').value = '';
@@ -999,10 +918,6 @@
     // ==================== INICIALIZACIÓN ====================
     function iniciar() {
         cargarDatos();
-        // Asegurar que las ventas antiguas tengan estado "ACTIVA"
-        for (const v of ventas) {
-            if (!v.estado) v.estado = 'ACTIVA';
-        }
         renderProductos();
         renderItemsVenta();
         renderHistorial();
@@ -1015,7 +930,7 @@
 </script>
 
 <footer style="text-align:center; font-size:11px; color:gray; margin-top:20px;">
-    ✅ Sistema Anita Maria — Datos locales | Exportar/Importar | Editar/Anular con control de stock | Scroll horizontal | Creado por Monkey 63
+    ✅ Sistema Anita Maria — Datos locales | Exportar/Importar | Botón Pagar | Scroll horizontal en iPhone | Creado por Monkey 63
 </footer>
 
 </body>
