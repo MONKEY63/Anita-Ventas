@@ -185,6 +185,8 @@
             <span class="storage-status">💾 Datos locales en este dispositivo</span>
             <button id="exportarBtn" class="btn-success btn-sm">📤 Exportar datos</button>
             <button id="importarBtn" class="btn-warning btn-sm">📥 Importar datos</button>
+            <button id="exportarTextoBtn" class="btn-success btn-sm">📋 Exportar como texto</button>
+            <button id="importarTextoBtn" class="btn-warning btn-sm">📋 Pegar y restaurar</button>
         </div>
         <p style="font-size: 11px; color: #6b7280; margin-top: 8px;">
             💡 Exporta los datos desde un dispositivo, envíalos por AirDrop/WhatsApp al otro, e impórtalos para compartir la información.
@@ -317,6 +319,30 @@
 
 <input type="file" id="fileImport" accept=".json" style="display: none;">
 
+<div id="textExportModal" class="modal">
+    <div class="modal-content" style="max-width:500px; text-align:left;">
+        <h3>📋 Copiar datos como texto</h3>
+        <p style="font-size:13px; color:#666;">Toca "Copiar al portapapeles" (o selecciona todo el texto manualmente) y pégalo en una Nota, WhatsApp o correo para guardarlo como respaldo.</p>
+        <textarea id="textExportArea" readonly style="width:100%; height:200px; font-family:monospace; font-size:11px; box-sizing:border-box;"></textarea>
+        <div class="text-center" style="margin-top:10px;">
+            <button id="copyExportBtn">📋 Copiar al portapapeles</button>
+            <button id="closeTextExportBtn" class="btn-secondary">Cerrar</button>
+        </div>
+    </div>
+</div>
+<div id="textImportModal" class="modal">
+    <div class="modal-content" style="max-width:500px; text-align:left;">
+        <h3>📋 Pegar y restaurar datos</h3>
+        <p style="font-size:13px; color:#666;">Pega aquí el texto que copiaste anteriormente y toca "Restaurar".</p>
+        <textarea id="textImportArea" placeholder="Pega aquí el texto copiado..." style="width:100%; height:200px; font-family:monospace; font-size:11px; box-sizing:border-box;"></textarea>
+        <div class="text-center" style="margin-top:10px;">
+            <button id="restoreTextBtn">✅ Restaurar</button>
+            <button id="closeTextImportBtn" class="btn-secondary">Cancelar</button>
+        </div>
+    </div>
+</div>
+
+
 
 <script>
     // ==================== DATOS GLOBALES ====================
@@ -405,6 +431,26 @@
         }
     }
     
+    function aplicarDatosImportados(datos) {
+        if (datos && datos.productos && datos.ventas !== undefined) {
+            productos = datos.productos;
+            ventas = datos.ventas;
+            itemsVenta = [];
+            document.getElementById('buyerName').value = '';
+            document.getElementById('amountPaid').value = 0;
+            guardarTodo();
+            renderProductos();
+            renderItemsVenta();
+            renderHistorial();
+            renderResumen();
+            mostrarMensaje('Importación exitosa', `📦 ${productos.length} productos\n📜 ${ventas.length} ventas`);
+            return true;
+        } else {
+            mostrarMensaje('Error', 'Datos inválidos');
+            return false;
+        }
+    }
+    
     function importarDesdeArchivo(event) {
         const file = event.target.files[0];
         if (!file) return;
@@ -412,21 +458,7 @@
         reader.onload = function(e) {
             try {
                 const datos = JSON.parse(e.target.result);
-                if (datos.productos && datos.ventas !== undefined) {
-                    productos = datos.productos;
-                    ventas = datos.ventas;
-                    itemsVenta = [];
-                    document.getElementById('buyerName').value = '';
-                    document.getElementById('amountPaid').value = 0;
-                    guardarTodo();
-                    renderProductos();
-                    renderItemsVenta();
-                    renderHistorial();
-                    renderResumen();
-                    mostrarMensaje('Importación exitosa', `📦 ${productos.length} productos\n📜 ${ventas.length} ventas`);
-                } else {
-                    mostrarMensaje('Error', 'Archivo inválido');
-                }
+                aplicarDatosImportados(datos);
             } catch(error) {
                 mostrarMensaje('Error', 'No se pudo leer el archivo');
             }
@@ -434,6 +466,50 @@
         };
         reader.readAsText(file);
     }
+    
+    function exportarComoTexto() {
+        const datos = { version: '1.0', fechaExportacion: new Date().toISOString(), productos: productos, ventas: ventas };
+        const json = JSON.stringify(datos, null, 2);
+        document.getElementById('textExportArea').value = json;
+        document.getElementById('textExportModal').style.display = 'block';
+        setTimeout(() => {
+            const area = document.getElementById('textExportArea');
+            area.focus();
+            area.select();
+        }, 100);
+    }
+    
+    document.getElementById('exportarTextoBtn').onclick = exportarComoTexto;
+    document.getElementById('closeTextExportBtn').onclick = () => cerrarModal('textExportModal');
+    document.getElementById('copyExportBtn').onclick = () => {
+        const area = document.getElementById('textExportArea');
+        area.focus();
+        area.select();
+        try {
+            document.execCommand('copy');
+            mostrarMensaje('Copiado', 'El texto se copió al portapapeles. Pégalo donde quieras guardarlo.');
+        } catch(err) {
+            mostrarMensaje('Copia manual', 'No se pudo copiar automático. Selecciona el texto manualmente (mantén presionado → Seleccionar todo → Copiar).');
+        }
+    };
+    
+    document.getElementById('importarTextoBtn').onclick = () => {
+        document.getElementById('textImportArea').value = '';
+        document.getElementById('textImportModal').style.display = 'block';
+    };
+    document.getElementById('closeTextImportBtn').onclick = () => cerrarModal('textImportModal');
+    document.getElementById('restoreTextBtn').onclick = () => {
+        const texto = document.getElementById('textImportArea').value.trim();
+        if (!texto) { mostrarMensaje('Error', 'Pega el texto primero'); return; }
+        try {
+            const datos = JSON.parse(texto);
+            if (aplicarDatosImportados(datos)) {
+                cerrarModal('textImportModal');
+            }
+        } catch (err) {
+            mostrarMensaje('Error', 'El texto pegado no es válido');
+        }
+    };
     
     document.getElementById('exportarBtn').onclick = exportarDatos;
     document.getElementById('importarBtn').onclick = () => document.getElementById('fileImport').click();
